@@ -65,13 +65,12 @@ public class RagQueryTool extends BaseTool {
         }
 
         try {
-            RagQueryRequest request = RagQueryRequest.builder()
-                    .query(query)
-                    .chatModel(getParamAsString(params, "chatModel", null))
-                    .embeddingModel(getParamAsString(params, "embeddingModel", null))
-                    .maxResults(getParamAsInteger(params, "maxResults", null))
-                    .minScore(getParamAsDouble(params, "minScore", null))
-                    .build();
+            RagQueryRequest request = new RagQueryRequest();
+            request.setQuery(query);
+            request.setChatModel(getParamAsString(params, "chatModel", null));
+            request.setEmbeddingModel(getParamAsString(params, "embeddingModel", null));
+            request.setMaxResults(getParamAsInteger(params, "maxResults", null));
+            request.setMinScore(getParamAsDouble(params, "minScore", null));
 
             RagQueryResponse response = ragService.query(request);
 

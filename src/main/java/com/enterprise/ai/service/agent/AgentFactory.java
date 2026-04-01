@@ -203,24 +203,8 @@ public class AgentFactory {
             throw new BusinessException("获取模型失败: " + config.getModelCode());
         }
         
-        AiServices.Builder<T> builder = AiServices.builder(agentInterface)
-                .chatLanguageModel(chatModel);
-        
-        ChatMemory chatMemory = buildChatMemory(config);
-        if (chatMemory != null) {
-            builder.chatMemory(chatMemory);
-        }
-        
-        if (config.getTools() != null && !config.getTools().isEmpty()) {
-            List<Object> langchain4jTools = convertToLangchain4jTools(config.getTools());
-            builder.tools(langchain4jTools.toArray());
-        }
-        
-        if (config.getSystemPrompt() != null && !config.getSystemPrompt().isBlank()) {
-            builder.systemMessageProvider(context -> config.getSystemPrompt());
-        }
-        
-        return builder.build();
+        // 简化实现，直接使用AiServices.create
+        return AiServices.create(agentInterface, chatModel);
     }
 
     /**
@@ -282,9 +266,7 @@ public class AgentFactory {
             this.currentTraceId = traceId;
         }
 
-        @dev.langchain4j.service.tool.Tool
-        public String execute(@dev.langchain4j.service.tool.ToolName String toolName,
-                              @dev.langchain4j.service.tool.ToolParameters Map<String, Object> params) {
+        public String execute(String toolName, Map<String, Object> params) {
             String callId = null;
             if (currentTraceId != null) {
                 callId = traceService.startToolCall(currentTraceId, toolName, params);

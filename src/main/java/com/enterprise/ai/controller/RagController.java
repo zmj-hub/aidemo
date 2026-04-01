@@ -59,7 +59,7 @@ public class RagController {
     @Operation(summary = "删除文档", description = "删除指定文档及其向量数据")
     @SaCheckLogin
     @DeleteMapping("/documents/{documentId}")
-    public Result<Void> deleteDocument(@PathVariable String documentId) {
+    public Result<String> deleteDocument(@PathVariable String documentId) {
         documentService.deleteDocument(documentId);
         return Result.success("文档删除成功");
     }

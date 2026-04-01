@@ -112,7 +112,14 @@ public class HttpTool extends BaseTool {
             return new HashMap<>();
         }
         try {
-            return com.enterprise.ai.common.utils.JsonUtils.fromJson(headersJson, Map.class);
+            Map<String, Object> rawHeaders = com.enterprise.ai.common.utils.JsonUtils.parseMap(headersJson);
+            Map<String, String> headers = new HashMap<>();
+            if (rawHeaders != null) {
+                for (Map.Entry<String, Object> entry : rawHeaders.entrySet()) {
+                    headers.put(entry.getKey(), entry.getValue() != null ? entry.getValue().toString() : null);
+                }
+            }
+            return headers;
         } catch (Exception e) {
             log.warn("解析请求头失败，使用空请求头: {}", e.getMessage());
             return new HashMap<>();

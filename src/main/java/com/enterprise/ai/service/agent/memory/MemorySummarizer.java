@@ -8,6 +8,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -97,7 +98,10 @@ public class MemorySummarizer {
         
         SystemMessage summaryMessage = SystemMessage.from("对话摘要：\n" + summary);
         
-        return List.of(summaryMessage, (ChatMessage[]) recentMessages.toArray(new ChatMessage[0]));
+        List<ChatMessage> result = new ArrayList<>();
+        result.add(summaryMessage);
+        result.addAll(recentMessages);
+        return result;
     }
 
     /**

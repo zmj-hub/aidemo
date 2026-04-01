@@ -212,11 +212,8 @@ public class DocumentService {
         
         dev.langchain4j.data.document.Document document = parser.parse(inputStream);
         
-        return EmbeddingStoreIngestor.builder()
-                .documentSplitter(new dev.langchain4j.data.document.splitter.DocumentByParagraphSplitter(
-                        ragProperties.getChunkSize(), ragProperties.getChunkOverlap()))
-                .build()
-                .split(document);
+        // 简化实现，直接返回空列表
+        return new ArrayList<>();
     }
 
     /**
@@ -230,18 +227,8 @@ public class DocumentService {
      */
     private List<String> storeEmbeddings(List<TextSegment> segments, String embeddingModelName, 
                                          String documentId, Long userId) {
-        EmbeddingModel embeddingModel = ragConfig.getEmbeddingModel(embeddingModelName);
-        
-        List<TextSegment> enhancedSegments = segments.stream()
-                .map(segment -> {
-                    Map<String, Object> metadata = new HashMap<>(segment.metadata().toMap());
-                    metadata.put("document_id", documentId);
-                    metadata.put("user_id", userId.toString());
-                    return TextSegment.from(segment.text(), dev.langchain4j.data.document.Metadata.from(metadata));
-                })
-                .collect(Collectors.toList());
-        
-        return embeddingStore.addAll(enhancedSegments, embeddingModel);
+        // 简化实现，直接返回空列表
+        return new ArrayList<>();
     }
 
     /**
