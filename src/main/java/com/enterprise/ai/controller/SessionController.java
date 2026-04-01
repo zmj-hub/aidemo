@@ -96,7 +96,7 @@ public class SessionController {
      */
     @Operation(summary = "归档会话", description = "将会话归档，归档后的会话默认不显示在列表中")
     @PostMapping("/{sessionId}/archive")
-    public Result<Void> archiveSession(
+    public Result<String> archiveSession(
             @Parameter(description = "会话ID", required = true)
             @PathVariable Long sessionId) {
         sessionService.archiveSession(sessionId);
@@ -111,7 +111,7 @@ public class SessionController {
      */
     @Operation(summary = "取消归档会话", description = "取消会话的归档状态，使其恢复到正常列表中")
     @PostMapping("/{sessionId}/unarchive")
-    public Result<Void> unarchiveSession(
+    public Result<String> unarchiveSession(
             @Parameter(description = "会话ID", required = true)
             @PathVariable Long sessionId) {
         sessionService.unarchiveSession(sessionId);
@@ -126,7 +126,7 @@ public class SessionController {
      */
     @Operation(summary = "删除会话", description = "永久删除会话及其相关数据")
     @DeleteMapping("/{sessionId}")
-    public Result<Void> deleteSession(
+    public Result<String> deleteSession(
             @Parameter(description = "会话ID", required = true)
             @PathVariable Long sessionId) {
         sessionService.deleteSession(sessionId);

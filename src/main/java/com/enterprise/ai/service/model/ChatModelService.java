@@ -251,8 +251,8 @@ public class ChatModelService {
                 return false;
             }
             
-            Response<AiMessage> response = model.generate("你好");
-            boolean healthy = response.content() != null && !response.content().text().isEmpty();
+            String response = model.generate("你好");
+            boolean healthy = response != null && !response.isEmpty();
             modelFactory.updateModelHealth(modelCode, healthy);
             return healthy;
         } catch (Exception e) {

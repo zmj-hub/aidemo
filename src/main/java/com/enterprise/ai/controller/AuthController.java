@@ -49,7 +49,7 @@ public class AuthController {
     @Operation(summary = "用户登出", description = "退出当前登录状态")
     @SaCheckLogin
     @PostMapping("/logout")
-    public Result<Void> logout() {
+    public Result<String> logout() {
         StpUtil.logout();
         return Result.success("登出成功");
     }

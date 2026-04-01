@@ -10,6 +10,7 @@ import com.enterprise.ai.domain.dto.RagQueryRequest;
 import com.enterprise.ai.domain.dto.RagQueryResponse;
 import com.enterprise.ai.domain.entity.Document;
 import com.enterprise.ai.service.model.ChatModelService;
+import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -44,6 +45,9 @@ public class RagService {
 
     @Autowired
     private ChatModelService chatModelService;
+
+    @Autowired
+    private ModelFactory modelFactory;
 
     /**
      * 文档元数据缓存，用于快速查找文档名称
@@ -188,7 +192,7 @@ public class RagService {
      * @return Chat模型
      */
     private ChatLanguageModel getChatModel(String modelName) {
-        ChatLanguageModel model = chatModelService.getChatModel(modelName);
+        ChatLanguageModel model = modelFactory.getChatModel(modelName);
         if (model == null) {
             throw new BusinessException("不支持的Chat模型：" + modelName);
         }

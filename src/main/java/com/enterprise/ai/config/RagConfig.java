@@ -2,13 +2,9 @@ package com.enterprise.ai.config;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
-import dev.langchain4j.store.embedding.milvus.MilvusEmbeddingStore;
-import dev.langchain4j.store.embedding.pinecone.PineconeEmbeddingStore;
-import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,61 +47,8 @@ public class RagConfig {
      */
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        String storeType = ragProperties.getVectorStoreType();
-        
-        switch (storeType.toLowerCase()) {
-            case "milvus":
-                return createMilvusEmbeddingStore();
-            case "pinecone":
-                return createPineconeEmbeddingStore();
-            case "chroma":
-                return createChromaEmbeddingStore();
-            case "memory":
-            default:
-                return inMemoryEmbeddingStore();
-        }
-    }
-
-    /**
-     * 创建Milvus向量存储
-     * 
-     * @return Milvus向量存储
-     */
-    private EmbeddingStore<TextSegment> createMilvusEmbeddingStore() {
-        RagProperties.MilvusConfig config = ragProperties.getMilvus();
-        return MilvusEmbeddingStore.builder()
-                .host(config.getHost())
-                .port(config.getPort())
-                .collectionName(config.getCollectionName())
-                .dimension(config.getDimension())
-                .build();
-    }
-
-    /**
-     * 创建Pinecone向量存储
-     * 
-     * @return Pinecone向量存储
-     */
-    private EmbeddingStore<TextSegment> createPineconeEmbeddingStore() {
-        RagProperties.PineconeConfig config = ragProperties.getPinecone();
-        return PineconeEmbeddingStore.builder()
-                .apiKey(config.getApiKey())
-                .environment(config.getEnvironment())
-                .indexName(config.getIndexName())
-                .build();
-    }
-
-    /**
-     * 创建Chroma向量存储
-     * 
-     * @return Chroma向量存储
-     */
-    private EmbeddingStore<TextSegment> createChromaEmbeddingStore() {
-        RagProperties.ChromaConfig config = ragProperties.getChroma();
-        return ChromaEmbeddingStore.builder()
-                .baseUrl(config.getBaseUrl())
-                .collectionName(config.getCollectionName())
-                .build();
+        // 只使用内存向量存储
+        return inMemoryEmbeddingStore();
     }
 
     /**
