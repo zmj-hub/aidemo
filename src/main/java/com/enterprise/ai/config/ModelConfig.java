@@ -2,7 +2,7 @@ package com.enterprise.ai.config;
 
 import com.enterprise.ai.service.model.properties.ModelScopeProperties;
 import com.enterprise.ai.service.model.properties.OllamaProperties;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiTokenizer;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;

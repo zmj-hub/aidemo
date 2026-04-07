@@ -22,6 +22,7 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
  * RAG服务类
  * 支持动态选择对话模型和Embedding模型，提供RAG问答，支持答案溯源
  */
+@Slf4j
 @Service
 public class RagService {
 
@@ -111,11 +113,18 @@ public class RagService {
             String embeddingModelName, Long userId, Integer maxResults, Double minScore) {
         EmbeddingModel embeddingModel = ragConfig.getEmbeddingModel(embeddingModelName);
 
-        List<EmbeddingMatch<TextSegment>> allMatches = embeddingStore.findRelevant(
-                embeddingModel.embed(query).content(),
-                maxResults * 2,
-                0.0
-        );
+        List<EmbeddingMatch<TextSegment>> allMatches = new ArrayList<>();
+        try {
+            if (embeddingModel != null) {
+                allMatches = embeddingStore.findRelevant(
+                        embeddingModel.embed(query).content(),
+                        maxResults * 2,
+                        0.0
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Embedding模型调用失败", e);
+        }
 
         return allMatches.stream()
                 .filter(match -> {
@@ -177,7 +186,7 @@ public class RagService {
 
         ChatLanguageModel chatModel = getChatModel(chatModelName);
         
-        Response<AiMessage> response = chatModel.generate(
+        Response<AiMessage> response = chatModel.chat(
                 SystemMessage.from(systemPrompt),
                 UserMessage.from(query)
         );

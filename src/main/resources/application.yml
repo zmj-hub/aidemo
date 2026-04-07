@@ -84,6 +84,15 @@ model:
       - llama3
       - mistral
 
+# 记忆管理配置
+memory:
+  # 默认记忆窗口大小（最近N条消息）
+  window-size: 10
+  # Redis中记忆数据的key前缀
+  key-prefix: "ai:session:memory:"
+  # 记忆过期时间（小时）
+  ttl-hours: 24
+
 # RAG配置
 rag:
   # 文档存储路径

@@ -1,5 +1,6 @@
 package com.enterprise.ai.service.agent.memory;
 
+import com.enterprise.ai.config.MemoryProperties;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,20 +18,8 @@ import java.util.List;
 @Component
 public class RedisShortTermMemory implements ChatMemoryStore {
 
-    /**
-     * Redis中记忆数据的key前缀
-     */
-    private static final String MEMORY_KEY_PREFIX = "ai:session:memory:";
-
-    /**
-     * 默认记忆过期时间（24小时）
-     */
-    private static final Duration DEFAULT_TTL = Duration.ofHours(24);
-
-    /**
-     * 默认窗口大小（最近20条消息）
-     */
-    private static final int DEFAULT_WINDOW_SIZE = 20;
+    @Autowired
+    private MemoryProperties memoryProperties;
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
@@ -60,14 +49,17 @@ public class RedisShortTermMemory implements ChatMemoryStore {
     public void updateMessages(Object memoryId, List<ChatMessage> messages) {
         String key = buildKey(memoryId);
         
+        int windowSize = memoryProperties.getWindowSize() != null ? memoryProperties.getWindowSize() : 10;
+        Duration ttl = Duration.ofHours(memoryProperties.getTtlHours() != null ? memoryProperties.getTtlHours() : 24);
+        
         List<ChatMessage> windowMessages;
-        if (messages.size() > DEFAULT_WINDOW_SIZE) {
-            windowMessages = messages.subList(messages.size() - DEFAULT_WINDOW_SIZE, messages.size());
+        if (messages.size() > windowSize) {
+            windowMessages = messages.subList(messages.size() - windowSize, messages.size());
         } else {
             windowMessages = new ArrayList<>(messages);
         }
         
-        redisTemplate.opsForValue().set(key, windowMessages, DEFAULT_TTL);
+        redisTemplate.opsForValue().set(key, windowMessages, ttl);
     }
 
     /**
@@ -109,6 +101,6 @@ public class RedisShortTermMemory implements ChatMemoryStore {
      * @return Redis key
      */
     private String buildKey(Object memoryId) {
-        return MEMORY_KEY_PREFIX + memoryId;
+        return memoryProperties.getKeyPrefix() + memoryId;
     }
 }

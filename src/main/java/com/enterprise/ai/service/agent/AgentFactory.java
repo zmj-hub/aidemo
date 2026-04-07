@@ -203,7 +203,6 @@ public class AgentFactory {
             throw new BusinessException("获取模型失败: " + config.getModelCode());
         }
         
-        // 简化实现，直接使用AiServices.create
         return AiServices.create(agentInterface, chatModel);
     }
 

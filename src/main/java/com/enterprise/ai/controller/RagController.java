@@ -9,6 +9,12 @@ import com.enterprise.ai.domain.dto.RagQueryResponse;
 import com.enterprise.ai.service.rag.DocumentService;
 import com.enterprise.ai.service.rag.RagService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +28,7 @@ import java.util.List;
  * RAG控制器
  * 提供文档上传、删除、列表查询、RAG问答接口
  */
-@Tag(name = "RAG模块", description = "RAG文档管理和问答相关接口")
+@Tag(name = "RAG模块", description = "RAG文档管理和问答相关接口 - 提供文档上传、向量化存储、基于文档的智能问答功能")
 @RestController
 @RequestMapping("/rag")
 public class RagController {
@@ -40,10 +46,30 @@ public class RagController {
      * @param request 文档上传请求参数
      * @return 文档信息
      */
-    @Operation(summary = "上传文档", description = "上传文档并进行解析、分块、向量化存储")
+    @Operation(
+        summary = "上传文档", 
+        description = "上传文档并进行解析、分块、向量化存储。支持的文档格式：PDF、TXT、DOCX等",
+        operationId = "uploadDocument"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "上传成功",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{\"code\":200,\"message\":\"文档上传成功\",\"data\":{\"documentId\":\"doc-123\",\"filename\":\"test.pdf\",\"fileSize\":1024000,\"chunkCount\":50,\"status\":\"PROCESSING\"}}")
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "未登录",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @SaCheckLogin
     @PostMapping(value = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<DocumentInfo> uploadDocument(
+            @Parameter(description = "上传的文档文件", required = true)
             @RequestParam("file") MultipartFile file,
             @Valid DocumentUploadRequest request) {
         DocumentInfo documentInfo = documentService.uploadDocument(file, request);
@@ -56,10 +82,31 @@ public class RagController {
      * @param documentId 文档ID
      * @return 删除结果
      */
-    @Operation(summary = "删除文档", description = "删除指定文档及其向量数据")
+    @Operation(
+        summary = "删除文档", 
+        description = "删除指定文档及其向量数据",
+        operationId = "deleteDocument"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "删除成功",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{\"code\":200,\"message\":\"文档删除成功\",\"data\":null}")
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "未登录",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @SaCheckLogin
     @DeleteMapping("/documents/{documentId}")
-    public Result<String> deleteDocument(@PathVariable String documentId) {
+    public Result<String> deleteDocument(
+            @Parameter(description = "文档ID", required = true)
+            @PathVariable String documentId) {
         documentService.deleteDocument(documentId);
         return Result.success("文档删除成功");
     }
@@ -69,7 +116,26 @@ public class RagController {
      * 
      * @return 文档列表
      */
-    @Operation(summary = "获取文档列表", description = "获取当前用户的所有文档列表")
+    @Operation(
+        summary = "获取文档列表", 
+        description = "获取当前用户的所有文档列表",
+        operationId = "getDocuments"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "获取成功",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{\"code\":200,\"message\":\"操作成功\",\"data\":[{\"documentId\":\"doc-123\",\"filename\":\"test.pdf\",\"fileSize\":1024000,\"chunkCount\":50,\"status\":\"READY\"}]}")
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "未登录",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @SaCheckLogin
     @GetMapping("/documents")
     public Result<List<DocumentInfo>> getDocuments() {
@@ -83,10 +149,31 @@ public class RagController {
      * @param documentId 文档ID
      * @return 文档详情
      */
-    @Operation(summary = "获取文档详情", description = "获取指定文档的详细信息")
+    @Operation(
+        summary = "获取文档详情", 
+        description = "获取指定文档的详细信息",
+        operationId = "getDocument"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "获取成功",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{\"code\":200,\"message\":\"操作成功\",\"data\":{\"documentId\":\"doc-123\",\"filename\":\"test.pdf\",\"fileSize\":1024000,\"chunkCount\":50,\"status\":\"READY\"}}")
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "未登录",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @SaCheckLogin
     @GetMapping("/documents/{documentId}")
-    public Result<DocumentInfo> getDocument(@PathVariable String documentId) {
+    public Result<DocumentInfo> getDocument(
+            @Parameter(description = "文档ID", required = true)
+            @PathVariable String documentId) {
         DocumentInfo documentInfo = documentService.getDocumentById(documentId);
         return Result.success(documentInfo);
     }
@@ -97,7 +184,26 @@ public class RagController {
      * @param request RAG查询请求参数
      * @return RAG查询响应
      */
-    @Operation(summary = "RAG问答", description = "基于上传的文档进行智能问答，支持答案溯源")
+    @Operation(
+        summary = "RAG问答", 
+        description = "基于上传的文档进行智能问答，支持答案溯源。可以指定文档范围或使用所有文档",
+        operationId = "ragQuery"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200", 
+            description = "查询成功",
+            content = @Content(
+                mediaType = "application/json",
+                examples = @ExampleObject(value = "{\"code\":200,\"message\":\"操作成功\",\"data\":{\"answer\":\"根据文档内容...\",\"sourceDocuments\":[{\"documentId\":\"doc-123\",\"chunkId\":\"chunk-1\",\"content\":\"相关内容片段\"}]}}")
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401", 
+            description = "未登录",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @SaCheckLogin
     @PostMapping("/query")
     public Result<RagQueryResponse> query(@Valid @RequestBody RagQueryRequest request) {

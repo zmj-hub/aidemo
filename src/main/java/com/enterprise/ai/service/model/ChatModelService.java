@@ -83,7 +83,7 @@ public class ChatModelService {
             List<ChatMessage> messages = buildChatMessages(request);
             int promptTokens = estimateTokenCount(messages);
             
-            Response<AiMessage> response = model.generate(messages);
+            Response<AiMessage> response = model.chat(messages);
             String content = response.content().text();
             
             int completionTokens = estimateTokenCount(content);
@@ -251,7 +251,7 @@ public class ChatModelService {
                 return false;
             }
             
-            String response = model.generate("你好");
+            String response = model.chat("你好");
             boolean healthy = response != null && !response.isEmpty();
             modelFactory.updateModelHealth(modelCode, healthy);
             return healthy;

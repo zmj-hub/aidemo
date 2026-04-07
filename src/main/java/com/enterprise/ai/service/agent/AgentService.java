@@ -2,14 +2,17 @@ package com.enterprise.ai.service.agent;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.enterprise.ai.common.exception.BusinessException;
+import com.enterprise.ai.config.MemoryProperties;
 import com.enterprise.ai.domain.dto.AgentChatRequest;
 import com.enterprise.ai.domain.dto.AgentChatResponse;
 import com.enterprise.ai.domain.dto.AgentStreamResponse;
+import com.enterprise.ai.service.agent.memory.MemorySummarizer;
+import com.enterprise.ai.service.agent.memory.RedisShortTermMemory;
 import com.enterprise.ai.service.agent.tools.ToolManager;
 import com.enterprise.ai.service.model.ModelFactory;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
-import dev.langchain4j.service.TokenStream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,11 +20,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * Agent服务类
- * 提供Agent同步对话和SSE流式对话功能，集成记忆管理、会话管理、工具管理、推理追踪
- */
 @Slf4j
 @Service
 public class AgentService {
@@ -38,19 +39,19 @@ public class AgentService {
     @Autowired
     private ModelFactory modelFactory;
 
-    /**
-     * Agent服务接口
-     */
+    @Autowired
+    private RedisShortTermMemory redisShortTermMemory;
+
+    @Autowired
+    private MemoryProperties memoryProperties;
+
+    @Autowired
+    private MemorySummarizer memorySummarizer;
+
     public interface Agent {
         String chat(String userMessage);
     }
 
-    /**
-     * 同步Agent聊天
-     *
-     * @param request 聊天请求
-     * @return 聊天响应
-     */
     public AgentChatResponse chat(AgentChatRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
         String traceId = null;
@@ -105,12 +106,6 @@ public class AgentService {
         }
     }
 
-    /**
-     * 流式Agent聊天（SSE）
-     *
-     * @param request 聊天请求
-     * @return Flux流式响应
-     */
     public Flux<AgentStreamResponse> streamChat(AgentChatRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
         Sinks.Many<AgentStreamResponse> sink = Sinks.many().multicast().onBackpressureBuffer();
@@ -131,13 +126,12 @@ public class AgentService {
 
                 StringBuilder fullResponse = new StringBuilder();
 
-                // 使用同步模型进行演示
                 ChatLanguageModel chatModel = modelFactory.getChatModel(request.getModelCode());
                 if (chatModel == null) {
                     throw new BusinessException("获取模型失败: " + request.getModelCode());
                 }
 
-                String response = chatModel.generate(request.getMessage());
+                String response = chatModel.chat(request.getMessage());
                 fullResponse.append(response);
 
                 sink.tryEmitNext(AgentStreamResponse.builder()
@@ -179,15 +173,9 @@ public class AgentService {
                 .timeout(Duration.ofMinutes(5));
     }
 
-    /**
-     * 构建Agent配置
-     *
-     * @param request 聊天请求
-     * @param userId  用户ID
-     * @return Agent配置
-     */
     private AgentConfig buildAgentConfig(AgentChatRequest request, Long userId) {
         String systemPrompt = request.getSystemPrompt() != null ? request.getSystemPrompt() : "你是一个有帮助的AI助手。";
+        Integer defaultWindowSize = memoryProperties.getWindowSize() != null ? memoryProperties.getWindowSize() : 10;
 
         AgentConfig.AgentConfigBuilder builder = AgentConfig.builder()
                 .agentName("enhanced-agent")
@@ -195,8 +183,8 @@ public class AgentService {
                 .sessionId(request.getSessionId())
                 .userId(userId)
                 .systemPrompt(systemPrompt)
-                .memoryStrategy(AgentConfig.MemoryStrategy.SHORT_TERM)
-                .memoryWindowSize(10)
+                .memoryStrategy(request.getMemoryStrategy() != null ? request.getMemoryStrategy() : AgentConfig.MemoryStrategy.SHORT_TERM)
+                .memoryWindowSize(defaultWindowSize)
                 .enableTracing(true);
 
         if (request.getToolNames() != null && !request.getToolNames().isEmpty()) {

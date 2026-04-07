@@ -12,8 +12,6 @@ import com.enterprise.ai.domain.entity.Document;
 import com.enterprise.ai.common.utils.UserContextHolder;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
-import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
-import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -203,14 +201,11 @@ public class DocumentService {
      * @return 文本片段列表
      */
     private List<TextSegment> parseAndSplitDocument(InputStream inputStream, String fileType) {
-        DocumentParser parser = switch (fileType) {
-            case "PDF" -> new ApachePdfBoxDocumentParser();
-            case "WORD" -> new ApachePoiDocumentParser();
-            case "MARKDOWN", "TEXT" -> new TextDocumentParser();
-            default -> throw new BusinessException("不支持的文件类型");
-        };
-        
-        dev.langchain4j.data.document.Document document = parser.parse(inputStream);
+        // 简化实现，仅支持文本文件
+        if ("MARKDOWN".equals(fileType) || "TEXT".equals(fileType)) {
+            DocumentParser parser = new TextDocumentParser();
+            dev.langchain4j.data.document.Document document = parser.parse(inputStream);
+        }
         
         // 简化实现，直接返回空列表
         return new ArrayList<>();

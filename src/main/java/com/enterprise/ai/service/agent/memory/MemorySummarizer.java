@@ -1,10 +1,12 @@
 package com.enterprise.ai.service.agent.memory;
 
+import com.enterprise.ai.config.MemoryProperties;
+import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -17,13 +19,9 @@ import java.util.stream.Collectors;
  * 对话自动摘要服务
  * 负责将长对话历史压缩为简洁的摘要，用于长期记忆存储
  */
+@Slf4j
 @Component
 public class MemorySummarizer {
-
-    /**
-     * 默认触发摘要的消息数量阈值
-     */
-    private static final int DEFAULT_SUMMARY_THRESHOLD = 10;
 
     /**
      * 摘要提示词
@@ -41,6 +39,12 @@ public class MemorySummarizer {
     @Autowired
     private VectorLongTermMemory vectorLongTermMemory;
 
+    @Autowired
+    private MemoryProperties memoryProperties;
+
+    @Autowired
+    private ModelFactory modelFactory;
+
     /**
      * 检查是否需要进行摘要
      * 
@@ -48,7 +52,8 @@ public class MemorySummarizer {
      * @return 是否需要摘要
      */
     public boolean shouldSummarize(List<ChatMessage> messages) {
-        return messages.size() >= DEFAULT_SUMMARY_THRESHOLD;
+        int threshold = memoryProperties.getSummaryThreshold() != null ? memoryProperties.getSummaryThreshold() : 10;
+        return messages.size() >= threshold;
     }
 
     /**
@@ -59,7 +64,7 @@ public class MemorySummarizer {
      * @param sessionId 会话ID
      * @return 生成的摘要文本
      */
-    public String generateSummary(List<ChatMessage> messages, Long userId, Long sessionId) {
+    public String generateSummary(List<ChatMessage> messages, Long userId, String sessionId) {
         String conversationText = formatMessagesForSummary(messages);
         
         String summary = callModelForSummary(conversationText);
@@ -75,14 +80,16 @@ public class MemorySummarizer {
      * @param messages 完整对话消息列表
      * @param userId 用户ID
      * @param sessionId 会话ID
-     * @param keepRecentCount 保留的最近消息数量
      * @return 压缩后的消息列表
      */
     public List<ChatMessage> getCompressedMemory(
             List<ChatMessage> messages,
             Long userId,
-            Long sessionId,
-            int keepRecentCount) {
+            String sessionId) {
+        
+        int keepRecentCount = memoryProperties.getKeepRecentCount() != null 
+            ? memoryProperties.getKeepRecentCount() 
+            : 3;
         
         if (messages.size() <= keepRecentCount) {
             return messages;
@@ -128,25 +135,41 @@ public class MemorySummarizer {
      */
     private String callModelForSummary(String conversationText) {
         try {
-            ChatLanguageModel model = createSimpleModel();
+            String modelCode = memoryProperties.getSummaryModelCode() != null 
+                ? memoryProperties.getSummaryModelCode() 
+                : "qwen-turbo";
+            
+            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            if (model == null) {
+                log.warn("摘要模型 {} 不可用，尝试使用第一个可用模型", modelCode);
+                model = findFirstAvailableModel();
+            }
+            
+            if (model == null) {
+                throw new RuntimeException("没有可用的模型来生成摘要");
+            }
+            
             String prompt = SUMMARY_PROMPT + "\n\n对话内容：\n" + conversationText;
-            return model.generate(prompt);
+            return model.chat(prompt);
         } catch (Exception e) {
+            log.error("生成摘要失败", e);
             return "对话摘要生成失败，保留原始对话内容。";
         }
     }
 
     /**
-     * 创建一个简单的模型用于摘要生成
+     * 查找第一个可用的聊天模型
      * 
-     * @return ChatLanguageModel实例
+     * @return 可用的聊天模型，没有则返回null
      */
-    private ChatLanguageModel createSimpleModel() {
-        return OpenAiChatModel.builder()
-                .apiKey("dummy-key")
-                .baseUrl("http://localhost:8080")
-                .modelName("gpt-3.5-turbo")
-                .build();
+    private ChatLanguageModel findFirstAvailableModel() {
+        for (String modelCode : modelFactory.getAvailableModels()) {
+            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            if (model != null) {
+                return model;
+            }
+        }
+        return null;
     }
 
     /**
@@ -156,7 +179,7 @@ public class MemorySummarizer {
      * @param userId 用户ID
      * @param sessionId 会话ID
      */
-    private void storeSummaryInLongTermMemory(String summary, Long userId, Long sessionId) {
+    private void storeSummaryInLongTermMemory(String summary, Long userId, String sessionId) {
         vectorLongTermMemory.addMemory(
             userId,
             summary,

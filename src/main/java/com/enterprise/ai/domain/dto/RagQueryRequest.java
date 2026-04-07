@@ -15,30 +15,30 @@ public class RagQueryRequest {
      * 用户查询问题
      */
     @NotBlank(message = "查询问题不能为空")
-    @Schema(description = "用户查询问题", required = true)
+    @Schema(description = "用户查询问题", example = "这个产品如何使用？", required = true)
     private String query;
 
     /**
      * Chat模型名称，为空则使用默认模型
      */
-    @Schema(description = "Chat模型名称")
+    @Schema(description = "Chat模型名称", example = "qwen-turbo")
     private String chatModel;
 
     /**
      * Embedding模型名称，为空则使用默认模型
      */
-    @Schema(description = "Embedding模型名称")
+    @Schema(description = "Embedding模型名称", example = "bge-large-zh-v1.5")
     private String embeddingModel;
 
     /**
      * 检索返回的最大文档数，为空则使用默认值
      */
-    @Schema(description = "检索返回的最大文档数")
+    @Schema(description = "检索返回的最大文档数", example = "5")
     private Integer maxResults;
 
     /**
      * 最小相似度阈值，为空则使用默认值
      */
-    @Schema(description = "最小相似度阈值")
+    @Schema(description = "最小相似度阈值", example = "0.7")
     private Double minScore;
 }
