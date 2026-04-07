@@ -4,7 +4,7 @@ import com.enterprise.ai.service.agent.memory.RedisShortTermMemory;
 import com.enterprise.ai.service.agent.tools.Tool;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -36,7 +36,7 @@ public class AgentConfig {
     /**
      * 使用的聊天模型
      */
-    private ChatLanguageModel chatModel;
+    private ChatModel chatModel;
 
     /**
      * 模型编码

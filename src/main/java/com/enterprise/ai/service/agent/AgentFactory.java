@@ -7,7 +7,7 @@ import com.enterprise.ai.service.agent.tools.ToolManager;
 import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -198,7 +198,7 @@ public class AgentFactory {
      * @return Agent实例
      */
     private <T> T buildAgent(AgentConfig config, Class<T> agentInterface) {
-        ChatLanguageModel chatModel = modelFactory.getChatModel(config.getModelCode());
+        ChatModel chatModel = modelFactory.getChatModel(config.getModelCode());
         if (chatModel == null) {
             throw new BusinessException("获取模型失败: " + config.getModelCode());
         }

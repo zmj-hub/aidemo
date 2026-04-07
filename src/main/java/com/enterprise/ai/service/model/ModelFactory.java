@@ -3,7 +3,7 @@ package com.enterprise.ai.service.model;
 import com.enterprise.ai.domain.enums.ModelProvider;
 import com.enterprise.ai.service.model.properties.ModelScopeProperties;
 import com.enterprise.ai.service.model.properties.OllamaProperties;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -35,7 +35,7 @@ public class ModelFactory {
     /**
      * 同步模型单例池
      */
-    private final Map<String, ChatLanguageModel> chatModelPool = new ConcurrentHashMap<>();
+    private final Map<String, ChatModel> chatModelPool = new ConcurrentHashMap<>();
 
     /**
      * 流式模型单例池
@@ -73,49 +73,49 @@ public class ModelFactory {
         }
         try {
             // 注册 qwen-turbo 模型
-            ChatLanguageModel qwenTurbo = applicationContext.getBean("qwenTurboModel", ChatLanguageModel.class);
+            ChatModel qwenTurbo = applicationContext.getBean("qwenTurboModel", ChatModel.class);
             if (qwenTurbo != null) {
                 chatModelPool.put(ModelProvider.QWEN_TURBO.getCode(), qwenTurbo);
                 healthyModels.add(ModelProvider.QWEN_TURBO.getCode());
                 log.info("注册ModelScope qwen-turbo模型成功");
             }
             // 注册 qwen-max 模型
-            ChatLanguageModel qwenMax = applicationContext.getBean("qwenMaxModel", ChatLanguageModel.class);
+            ChatModel qwenMax = applicationContext.getBean("qwenMaxModel", ChatModel.class);
             if (qwenMax != null) {
                 chatModelPool.put(ModelProvider.QWEN_MAX.getCode(), qwenMax);
                 healthyModels.add(ModelProvider.QWEN_MAX.getCode());
                 log.info("注册ModelScope qwen-max模型成功");
             }
             // 注册 qwen-plus 模型
-            ChatLanguageModel qwenPlus = applicationContext.getBean("qwenPlusModel", ChatLanguageModel.class);
+            ChatModel qwenPlus = applicationContext.getBean("qwenPlusModel", ChatModel.class);
             if (qwenPlus != null) {
                 chatModelPool.put(ModelProvider.QWEN_PLUS.getCode(), qwenPlus);
                 healthyModels.add(ModelProvider.QWEN_PLUS.getCode());
                 log.info("注册ModelScope qwen-plus模型成功");
             }
             // 注册 qwen2-7b-instruct 模型
-            ChatLanguageModel qwen2_7bInstruct = applicationContext.getBean("qwen2_7bInstructModel", ChatLanguageModel.class);
+            ChatModel qwen2_7bInstruct = applicationContext.getBean("qwen2_7bInstructModel", ChatModel.class);
             if (qwen2_7bInstruct != null) {
                 chatModelPool.put(ModelProvider.QWEN2_7B_INSTRUCT.getCode(), qwen2_7bInstruct);
                 healthyModels.add(ModelProvider.QWEN2_7B_INSTRUCT.getCode());
                 log.info("注册ModelScope qwen2-7b-instruct模型成功");
             }
             // 注册 llama3-8b-instruct 模型
-            ChatLanguageModel llama3_8bInstruct = applicationContext.getBean("llama3_8bInstructModel", ChatLanguageModel.class);
+            ChatModel llama3_8bInstruct = applicationContext.getBean("llama3_8bInstructModel", ChatModel.class);
             if (llama3_8bInstruct != null) {
                 chatModelPool.put(ModelProvider.LLAMA3_8B_INSTRUCT.getCode(), llama3_8bInstruct);
                 healthyModels.add(ModelProvider.LLAMA3_8B_INSTRUCT.getCode());
                 log.info("注册ModelScope llama3-8b-instruct模型成功");
             }
             // 注册 Qwen/Qwen3.5-397B-A17B 模型
-            ChatLanguageModel qwen3_5_397bA17b = applicationContext.getBean("qwen3_5_397bA17bModel", ChatLanguageModel.class);
+            ChatModel qwen3_5_397bA17b = applicationContext.getBean("qwen3_5_397bA17bModel", ChatModel.class);
             if (qwen3_5_397bA17b != null) {
                 chatModelPool.put(ModelProvider.QWEN3_5_397B_A17B.getCode(), qwen3_5_397bA17b);
                 healthyModels.add(ModelProvider.QWEN3_5_397B_A17B.getCode());
                 log.info("注册ModelScope Qwen/Qwen3.5-397B-A17B模型成功");
             }
             // 注册 Qwen/Qwen3.5-122B-A10B 模型
-            ChatLanguageModel qwen3_5_122bA10b = applicationContext.getBean("qwen3_5_122bA10bModel", ChatLanguageModel.class);
+            ChatModel qwen3_5_122bA10b = applicationContext.getBean("qwen3_5_122bA10bModel", ChatModel.class);
             if (qwen3_5_122bA10b != null) {
                 chatModelPool.put(ModelProvider.QWEN3_5_122B_A10B.getCode(), qwen3_5_122bA10b);
                 healthyModels.add(ModelProvider.QWEN3_5_122B_A10B.getCode());
@@ -154,7 +154,7 @@ public class ModelFactory {
      * @param modelCode 模型编码
      * @return 同步模型，如果不存在返回null
      */
-    public ChatLanguageModel getChatModel(String modelCode) {
+    public ChatModel getChatModel(String modelCode) {
         return chatModelPool.get(modelCode);
     }
 

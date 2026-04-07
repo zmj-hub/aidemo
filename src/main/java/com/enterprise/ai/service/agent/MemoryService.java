@@ -147,7 +147,7 @@ public class MemoryService {
 
     private String getMessageContent(ChatMessage message) {
         if (message instanceof UserMessage) {
-            return ((UserMessage) message).text();
+            return ((UserMessage) message).singleText();
         } else if (message instanceof AiMessage) {
             return ((AiMessage) message).text();
         } else if (message instanceof SystemMessage) {

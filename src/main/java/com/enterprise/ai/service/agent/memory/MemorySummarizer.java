@@ -5,7 +5,7 @@ import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -121,7 +121,16 @@ public class MemorySummarizer {
         return messages.stream()
                 .map(msg -> {
                     String role = msg.getClass().getSimpleName().replace("Message", "");
-                    String content = msg.text();
+                    String content;
+                    if (msg instanceof UserMessage) {
+                        content = ((UserMessage) msg).singleText();
+                    } else if (msg instanceof SystemMessage) {
+                        content = ((SystemMessage) msg).text();
+                    } else if (msg instanceof dev.langchain4j.data.message.AiMessage) {
+                        content = ((dev.langchain4j.data.message.AiMessage) msg).text();
+                    } else {
+                        content = msg.toString();
+                    }
                     return String.format("[%s]: %s", role, content);
                 })
                 .collect(Collectors.joining("\n"));
@@ -139,7 +148,7 @@ public class MemorySummarizer {
                 ? memoryProperties.getSummaryModelCode() 
                 : "qwen-turbo";
             
-            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            ChatModel model = modelFactory.getChatModel(modelCode);
             if (model == null) {
                 log.warn("摘要模型 {} 不可用，尝试使用第一个可用模型", modelCode);
                 model = findFirstAvailableModel();
@@ -162,9 +171,9 @@ public class MemorySummarizer {
      * 
      * @return 可用的聊天模型，没有则返回null
      */
-    private ChatLanguageModel findFirstAvailableModel() {
+    private ChatModel findFirstAvailableModel() {
         for (String modelCode : modelFactory.getAvailableModels()) {
-            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            ChatModel model = modelFactory.getChatModel(modelCode);
             if (model != null) {
                 return model;
             }

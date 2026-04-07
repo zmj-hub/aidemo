@@ -11,13 +11,13 @@ import com.enterprise.ai.domain.dto.RagQueryResponse;
 import com.enterprise.ai.domain.entity.Document;
 import com.enterprise.ai.service.model.ChatModelService;
 import com.enterprise.ai.service.model.ModelFactory;
-import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.Response;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -116,11 +116,13 @@ public class RagService {
         List<EmbeddingMatch<TextSegment>> allMatches = new ArrayList<>();
         try {
             if (embeddingModel != null) {
-                allMatches = embeddingStore.findRelevant(
-                        embeddingModel.embed(query).content(),
-                        maxResults * 2,
-                        0.0
-                );
+                allMatches = embeddingStore.search(
+                        EmbeddingSearchRequest.builder()
+                                .queryEmbedding(embeddingModel.embed(query).content())
+                                .maxResults(maxResults * 2)
+                                .minScore(0.0)
+                                .build()
+                ).matches();
             }
         } catch (Exception e) {
             log.warn("Embedding模型调用失败", e);
@@ -184,14 +186,14 @@ public class RagService {
                 "4. 可以适当引用文档中的内容来支持你的回答\n\n" +
                 "文档内容：\n" + context;
 
-        ChatLanguageModel chatModel = getChatModel(chatModelName);
+        ChatModel chatModel = getChatModel(chatModelName);
         
-        Response<AiMessage> response = chatModel.chat(
+        dev.langchain4j.model.chat.response.ChatResponse response = chatModel.chat(
                 SystemMessage.from(systemPrompt),
                 UserMessage.from(query)
         );
 
-        return response.content().text();
+        return response.aiMessage().text();
     }
 
     /**
@@ -200,8 +202,8 @@ public class RagService {
      * @param modelName 模型名称
      * @return Chat模型
      */
-    private ChatLanguageModel getChatModel(String modelName) {
-        ChatLanguageModel model = modelFactory.getChatModel(modelName);
+    private ChatModel getChatModel(String modelName) {
+        ChatModel model = modelFactory.getChatModel(modelName);
         if (model == null) {
             throw new BusinessException("不支持的Chat模型：" + modelName);
         }

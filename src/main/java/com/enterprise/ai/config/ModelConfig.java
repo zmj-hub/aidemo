@@ -4,7 +4,7 @@ import com.enterprise.ai.service.model.properties.ModelScopeProperties;
 import com.enterprise.ai.service.model.properties.OllamaProperties;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.model.openai.OpenAiTokenizer;
+import dev.langchain4j.model.openai.OpenAiTokenCountEstimator;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +22,7 @@ public class ModelConfig {
     private OllamaProperties ollamaProperties;
 
     @Bean
-    public ChatLanguageModel qwenTurboModel() {
+    public ChatModel qwenTurboModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -36,7 +36,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel qwenMaxModel() {
+    public ChatModel qwenMaxModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -50,7 +50,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel qwenPlusModel() {
+    public ChatModel qwenPlusModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -64,7 +64,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel qwen2_7bInstructModel() {
+    public ChatModel qwen2_7bInstructModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -78,7 +78,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel llama3_8bInstructModel() {
+    public ChatModel llama3_8bInstructModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -92,7 +92,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel qwen3_5_397bA17bModel() {
+    public ChatModel qwen3_5_397bA17bModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -106,7 +106,7 @@ public class ModelConfig {
     }
 
     @Bean
-    public ChatLanguageModel qwen3_5_122bA10bModel() {
+    public ChatModel qwen3_5_122bA10bModel() {
         if (!modelScopeProperties.getEnabled()) {
             return null;
         }
@@ -133,7 +133,8 @@ public class ModelConfig {
     }
 
     @Bean
-    public OpenAiTokenizer modelScopeTokenizer() {
-        return new OpenAiTokenizer();
+    public OpenAiTokenCountEstimator modelScopeTokenizer() {
+        // OpenAiTokenCountEstimator 需要提供模型名称参数
+        return new OpenAiTokenCountEstimator("gpt-3.5-turbo");
     }
 }

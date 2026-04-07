@@ -9,8 +9,8 @@ import com.enterprise.ai.domain.enums.ModelProvider;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiTokenizer;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.openai.OpenAiTokenCountEstimator;
 import dev.langchain4j.model.output.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +37,7 @@ public class ChatModelService {
 
     @Autowired
     @Qualifier("modelScopeTokenizer")
-    private OpenAiTokenizer tokenizer;
+    private OpenAiTokenCountEstimator tokenizer;
 
     /**
      * 角色与可用模型的映射关系
@@ -75,7 +75,7 @@ public class ChatModelService {
                 throw new BusinessException("模型不可用: " + modelCode);
             }
             
-            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            ChatModel model = modelFactory.getChatModel(modelCode);
             if (model == null) {
                 throw new BusinessException("模型未找到: " + modelCode);
             }
@@ -245,7 +245,7 @@ public class ChatModelService {
      */
     public boolean healthCheck(String modelCode) {
         try {
-            ChatLanguageModel model = modelFactory.getChatModel(modelCode);
+            ChatModel model = modelFactory.getChatModel(modelCode);
             if (model == null) {
                 modelFactory.updateModelHealth(modelCode, false);
                 return false;

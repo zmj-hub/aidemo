@@ -11,7 +11,7 @@ import com.enterprise.ai.service.agent.memory.RedisShortTermMemory;
 import com.enterprise.ai.service.agent.tools.ToolManager;
 import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,7 +61,7 @@ public class AgentService {
             traceId = traceService.startTrace(request.getSessionId(), userId, "enhanced-agent");
             traceService.setUserInput(traceId, request.getMessage());
 
-            ChatLanguageModel chatModel = modelFactory.getChatModel(request.getModelCode());
+            ChatModel chatModel = modelFactory.getChatModel(request.getModelCode());
             if (chatModel == null) {
                 throw new BusinessException("获取模型失败: " + request.getModelCode());
             }
@@ -126,7 +126,7 @@ public class AgentService {
 
                 StringBuilder fullResponse = new StringBuilder();
 
-                ChatLanguageModel chatModel = modelFactory.getChatModel(request.getModelCode());
+                ChatModel chatModel = modelFactory.getChatModel(request.getModelCode());
                 if (chatModel == null) {
                     throw new BusinessException("获取模型失败: " + request.getModelCode());
                 }
