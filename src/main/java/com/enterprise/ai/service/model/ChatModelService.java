@@ -11,7 +11,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.openai.OpenAiTokenCountEstimator;
-import dev.langchain4j.model.output.Response;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -38,6 +38,22 @@ public class ChatModelService {
     @Autowired
     @Qualifier("modelScopeTokenizer")
     private OpenAiTokenCountEstimator tokenizer;
+
+    /**
+     * 获取当前用户角色列表，如果未登录则返回guest角色
+     */
+    private List<String> getCurrentUserRoles() {
+        try {
+            List<String> roles = StpUtil.getRoleList();
+            if (roles.isEmpty()) {
+                roles = List.of("guest");
+            }
+            return roles;
+        } catch (Exception e) {
+            // 未登录时返回guest角色
+            return List.of("guest");
+        }
+    }
 
     /**
      * 角色与可用模型的映射关系
@@ -83,8 +99,8 @@ public class ChatModelService {
             List<ChatMessage> messages = buildChatMessages(request);
             int promptTokens = estimateTokenCount(messages);
             
-            Response<AiMessage> response = model.chat(messages);
-            String content = response.content().text();
+            dev.langchain4j.model.chat.response.ChatResponse response = model.chat(messages);
+            String content = response.aiMessage().text();
             
             int completionTokens = estimateTokenCount(content);
             int totalTokens = promptTokens + completionTokens;
@@ -122,10 +138,7 @@ public class ChatModelService {
      * @param modelCode 模型编码
      */
     private void checkModelPermission(String modelCode) {
-        List<String> roles = StpUtil.getRoleList();
-        if (roles.isEmpty()) {
-            roles = List.of("guest");
-        }
+        List<String> roles = getCurrentUserRoles();
         
         boolean hasPermission = false;
         for (String role : roles) {
@@ -202,10 +215,7 @@ public class ChatModelService {
      * @return 模型信息列表
      */
     public List<ModelInfo> getAvailableModels() {
-        List<String> roles = StpUtil.getRoleList();
-        if (roles.isEmpty()) {
-            roles = List.of("guest");
-        }
+        List<String> roles = getCurrentUserRoles();
         
         Set<String> availableModels = modelFactory.getAvailableModels();
         List<ModelInfo> result = new ArrayList<>();

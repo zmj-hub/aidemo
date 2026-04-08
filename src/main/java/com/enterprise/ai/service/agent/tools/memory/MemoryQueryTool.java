@@ -75,7 +75,7 @@ public class MemoryQueryTool extends BaseTool {
 
                 Map<String, Object> messageInfo = new HashMap<>();
                 messageInfo.put("type", getMessageType(message));
-                messageInfo.put("content", message.text());
+                messageInfo.put("content", getMessageContent(message));
                 filteredMessages.add(messageInfo);
             }
 
@@ -112,5 +112,22 @@ public class MemoryQueryTool extends BaseTool {
             return "system";
         }
         return "unknown";
+    }
+
+    /**
+     * 获取消息内容
+     * 
+     * @param message 聊天消息
+     * @return 消息内容字符串
+     */
+    private String getMessageContent(ChatMessage message) {
+        if (message instanceof dev.langchain4j.data.message.UserMessage userMessage) {
+            return userMessage.singleText();
+        } else if (message instanceof dev.langchain4j.data.message.AiMessage aiMessage) {
+            return aiMessage.text();
+        } else if (message instanceof dev.langchain4j.data.message.SystemMessage systemMessage) {
+            return systemMessage.text();
+        }
+        return "";
     }
 }

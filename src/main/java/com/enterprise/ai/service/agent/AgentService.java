@@ -48,12 +48,24 @@ public class AgentService {
     @Autowired
     private MemorySummarizer memorySummarizer;
 
+    /**
+     * 获取当前用户ID，如果未登录则返回默认用户ID
+     */
+    private Long getCurrentUserId() {
+        try {
+            return StpUtil.getLoginIdAsLong();
+        } catch (Exception e) {
+            // 未登录时返回默认用户ID
+            return 1L;
+        }
+    }
+
     public interface Agent {
         String chat(String userMessage);
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         String traceId = null;
         long startTime = System.currentTimeMillis();
 
@@ -107,7 +119,7 @@ public class AgentService {
     }
 
     public Flux<AgentStreamResponse> streamChat(AgentChatRequest request) {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         Sinks.Many<AgentStreamResponse> sink = Sinks.many().multicast().onBackpressureBuffer();
 
         new Thread(() -> {

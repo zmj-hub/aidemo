@@ -15,17 +15,7 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI customOpenAPI() {
-        final String securitySchemeName = "bearerAuth";
         return new OpenAPI()
-                .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
-                .components(new Components()
-                        .addSecuritySchemes(securitySchemeName,
-                                new SecurityScheme()
-                                        .name(securitySchemeName)
-                                        .type(SecurityScheme.Type.HTTP)
-                                        .scheme("bearer")
-                                        .bearerFormat("JWT")
-                                        .description("请输入登录后获取的Token，格式：Bearer {token}")))
                 .info(new Info()
                         .title("企业级AI应用平台API文档")
                         .version("1.0.0")

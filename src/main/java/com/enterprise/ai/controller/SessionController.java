@@ -26,7 +26,7 @@ import java.util.List;
 @Tag(name = "会话模块", description = "会话管理相关接口 - 提供AI会话的创建、查询、更新、归档、删除等功能")
 @RestController
 @RequestMapping("/sessions")
-@SaCheckLogin
+// @SaCheckLogin // 暂时注释，允许无需登录访问
 public class SessionController {
 
     @Autowired

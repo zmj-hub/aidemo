@@ -66,7 +66,7 @@ public class RagController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping(value = "/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Result<DocumentInfo> uploadDocument(
             @Parameter(description = "上传的文档文件", required = true)
@@ -102,7 +102,7 @@ public class RagController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @DeleteMapping("/documents/{documentId}")
     public Result<String> deleteDocument(
             @Parameter(description = "文档ID", required = true)
@@ -136,7 +136,7 @@ public class RagController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/documents")
     public Result<List<DocumentInfo>> getDocuments() {
         List<DocumentInfo> documents = documentService.getUserDocuments();
@@ -169,7 +169,7 @@ public class RagController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/documents/{documentId}")
     public Result<DocumentInfo> getDocument(
             @Parameter(description = "文档ID", required = true)
@@ -204,7 +204,7 @@ public class RagController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping("/query")
     public Result<RagQueryResponse> query(@Valid @RequestBody RagQueryRequest request) {
         RagQueryResponse response = ragService.query(request);

@@ -21,10 +21,24 @@ public class SaTokenConfig implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 暂时不限制任何接口访问
         registry.addInterceptor(new SaInterceptor(handle -> {
             SaRouter.match("/**")
-                    .notMatch("/auth/login", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**")
+                    .check(r -> { /* 暂时无需登录 */ });
+        })).addPathPatterns("/**");
+        
+        /* 原有逻辑，暂时注释
+        registry.addInterceptor(new SaInterceptor(handle -> {
+            SaRouter.match("/**")
+                    .notMatch("/auth/login", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**", "/doc.html")
                     .check(r -> StpUtil.checkLogin());
         })).addPathPatterns("/**");
+        
+        // 确保Swagger相关路径都能正常访问
+        registry.addInterceptor(new SaInterceptor(handle -> {
+            SaRouter.match("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**", "/doc.html")
+                    .check(r -> { });
+        })).addPathPatterns("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/webjars/**", "/doc.html");
+        */
     }
 }

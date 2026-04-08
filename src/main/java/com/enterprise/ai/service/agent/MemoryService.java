@@ -30,8 +30,20 @@ public class MemoryService {
     @Autowired
     private SessionService sessionService;
 
+    /**
+     * 获取当前用户ID，如果未登录则返回默认用户ID
+     */
+    private Long getCurrentUserId() {
+        try {
+            return StpUtil.getLoginIdAsLong();
+        } catch (Exception e) {
+            // 未登录时返回默认用户ID
+            return 1L;
+        }
+    }
+
     public List<MemoryInfo> getMemoryList() {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         List<SessionInfo> sessionList = sessionService.getSessionList(true);
         
         return sessionList.stream()
@@ -56,7 +68,7 @@ public class MemoryService {
     }
 
     public List<MemorySearchResult> searchMemory(MemorySearchRequest request) {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         String keyword = request.getKeyword().toLowerCase();
         List<SessionInfo> sessionList = (request.getSearchAll() != null && request.getSearchAll()) 
                 ? sessionService.getSessionList(true) 
@@ -91,17 +103,17 @@ public class MemoryService {
     public void deleteSessionMemory(Long sessionId) {
         validateSessionOwnership(sessionId);
         redisShortTermMemory.deleteMessages(sessionId);
-        log.info("用户 {} 删除了会话 {} 的记忆", StpUtil.getLoginIdAsLong(), sessionId);
+        log.info("用户 {} 删除了会话 {} 的记忆", getCurrentUserId(), sessionId);
     }
 
     public void clearSessionMemory(Long sessionId) {
         validateSessionOwnership(sessionId);
         redisShortTermMemory.clear(sessionId);
-        log.info("用户 {} 清空了会话 {} 的记忆", StpUtil.getLoginIdAsLong(), sessionId);
+        log.info("用户 {} 清空了会话 {} 的记忆", getCurrentUserId(), sessionId);
     }
 
     public void clearAllMemory() {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         List<SessionInfo> sessionList = sessionService.getSessionList(true);
         
         for (SessionInfo session : sessionList) {
@@ -112,7 +124,7 @@ public class MemoryService {
     }
 
     private void validateSessionOwnership(Long sessionId) {
-        Long userId = StpUtil.getLoginIdAsLong();
+        Long userId = getCurrentUserId();
         SessionInfo session = sessionService.getSessionById(sessionId);
         
         if (!session.getUserId().equals(userId)) {

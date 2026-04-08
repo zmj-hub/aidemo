@@ -11,12 +11,14 @@ import com.enterprise.ai.domain.dto.RagQueryResponse;
 import com.enterprise.ai.domain.entity.Document;
 import com.enterprise.ai.service.model.ChatModelService;
 import com.enterprise.ai.service.model.ModelFactory;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.output.Response;
+
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingStore;
@@ -188,10 +190,11 @@ public class RagService {
 
         ChatModel chatModel = getChatModel(chatModelName);
         
-        dev.langchain4j.model.chat.response.ChatResponse response = chatModel.chat(
-                SystemMessage.from(systemPrompt),
-                UserMessage.from(query)
-        );
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(SystemMessage.from(systemPrompt));
+        messages.add(UserMessage.from(query));
+        
+        dev.langchain4j.model.chat.response.ChatResponse response = chatModel.chat(messages);
 
         return response.aiMessage().text();
     }

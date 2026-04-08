@@ -40,6 +40,26 @@ springdoc:
       paths-to-match: /**
       packages-to-scan: com.enterprise.ai
 
+knife4j:
+  enable: true
+  setting:
+    language: zh_CN
+  production: false
+  basic:
+    enable: false
+  swagger-ui:
+    enable: true
+  openapi:
+    title: 企业级AI应用平台API文档
+    description: 提供AI相关功能的API接口文档，包括认证、Agent对话、模型管理、RAG文档问答、会话管理、记忆管理等功能
+    version: 1.0.0
+    contact:
+      name: 开发团队
+      email: dev@enterprise.com
+    license:
+      name: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0.html
+
 management:
   endpoints:
     web:

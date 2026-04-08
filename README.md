@@ -345,7 +345,7 @@ aidemo/
 - **后端框架**：Spring Boot 3.3.5
 - **JDK**：OpenJDK 21
 - **构建工具**：Maven 3.9+
-- **AI 框架**：LangChain4j 0.34.0
+- **AI 框架**：LangChain4j 1.12.2
 - **缓存**：Redis 7+
 - **认证**：Sa-Token 1.37.0
 - **API 文档**：SpringDoc OpenAPI 2.5.0

@@ -77,7 +77,7 @@ public class AuthController {
         description = "退出当前登录状态，Token将失效",
         operationId = "logout"
     )
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping("/logout")
     public Result<String> logout() {
         StpUtil.logout();
@@ -94,7 +94,7 @@ public class AuthController {
         description = "获取当前登录用户的详细信息，需要先登录",
         operationId = "getCurrentUser"
     )
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/current")
     public Result<User> getCurrentUser() {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -113,7 +113,7 @@ public class AuthController {
         description = "演示@SaCheckLogin注解的使用方式，只有登录用户才能访问此接口",
         operationId = "protectedResource"
     )
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/protected")
     public Result<String> protectedResource() {
         return Result.success("这是需要登录才能访问的受保护资源");

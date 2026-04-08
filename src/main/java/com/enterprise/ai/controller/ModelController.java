@@ -59,7 +59,7 @@ public class ModelController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/list")
     public Result<List<ModelInfo>> getModelList() {
         List<ModelInfo> models = chatModelService.getAvailableModels();
@@ -92,7 +92,7 @@ public class ModelController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping("/chat")
     public Result<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
         ChatResponse response = chatModelService.chat(request);
@@ -129,7 +129,7 @@ public class ModelController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @GetMapping("/health/{modelCode}")
     public Result<Boolean> healthCheck(
             @Parameter(description = "模型编码", required = true, example = "qwen-turbo")
@@ -164,7 +164,7 @@ public class ModelController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping("/health/batch")
     public Result<Map<String, Boolean>> batchHealthCheck(@Valid @RequestBody ModelHealthCheckRequest request) {
         Map<String, Boolean> result = chatModelService.batchHealthCheck(request.getModelCodes());

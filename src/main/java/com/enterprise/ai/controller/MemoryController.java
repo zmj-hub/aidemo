@@ -20,7 +20,7 @@ import java.util.List;
 @Tag(name = "记忆模块", description = "会话记忆管理相关接口 - 提供会话记忆的查看、搜索、删除等功能")
 @RestController
 @RequestMapping("/memory")
-@SaCheckLogin
+// @SaCheckLogin // 暂时注释，允许无需登录访问
 public class MemoryController {
 
     @Autowired

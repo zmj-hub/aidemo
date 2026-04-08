@@ -63,7 +63,7 @@ public class AgentController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping("/chat")
     public Result<AgentChatResponse> chat(@Valid @RequestBody AgentChatRequest request) {
         AgentChatResponse response = agentService.chat(request);
@@ -100,7 +100,7 @@ public class AgentController {
             content = @Content(mediaType = "application/json")
         )
     })
-    @SaCheckLogin
+    // @SaCheckLogin // 暂时注释，允许无需登录访问
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<AgentStreamResponse> streamChat(@Valid @RequestBody AgentChatRequest request) {
         return agentService.streamChat(request);
