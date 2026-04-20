@@ -82,7 +82,7 @@ logging:
 model:
   # ModelScope配置
   modelscope:
-    enabled: false
+    enabled: true
     api-key: ms-28a9e148-b281-404d-a7bf-4b732cb1a61e
     base-url: https://api-inference.modelscope.cn/v1
     timeout: 60000
@@ -91,6 +91,7 @@ model:
       - Qwen/Qwen3.5-397B-A17B
       - Qwen/Qwen3.5-122B-A10B
       - qwen-plus
+      - qwen2-7b-instruct
       - qwen2-7b-instruct
       - llama3-8b-instruct
   # Ollama配置
