@@ -86,3 +86,6 @@ data/
 
 # Trae IDE生成的目录
 .trae/
+
+# node_modules
+frontend/node_modules/
