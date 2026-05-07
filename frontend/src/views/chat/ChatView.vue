@@ -263,7 +263,7 @@
             <template v-else>
               <div class="message-content assistant-content">
                 <div class="avatar ai-avatar">
-                  <el-icon><Robot /></el-icon>
+                  <el-icon><Aim /></el-icon>
                 </div>
                 <div class="bubble ai-bubble">
                   <!-- 加载动画 -->
@@ -352,7 +352,7 @@ import {
   Edit,
   Fold,
   Setting,
-  Robot,
+  Aim,
   Promotion,
   VideoPause,
   Paperclip,
@@ -493,15 +493,12 @@ onUnmounted(() => {
   delete window.copyCode
 })
 
-// 监听会话切换，加载历史记录
+// 监听会话切换，清空消息显示欢迎界面
 watch(() => sessionStore.currentSessionId, async (newSessionId) => {
   if (newSessionId) {
-    try {
-      await chatStore.fetchHistory(newSessionId)
-      scrollToBottom()
-    } catch (error) {
-      console.error('获取历史记录失败:', error)
-    }
+    // 切换会话时清空当前消息（后端无历史记录API，消息仅在前端内存维护）
+    chatStore.clearMessages(newSessionId)
+    scrollToBottom()
   }
 })
 
@@ -776,10 +773,12 @@ function exportConversation(sessionId) {
   ElMessage.success('导出成功')
 }
 
-// 消息发送 - SSE流式模式
+// 发送消息 - SSE流式模式
 async function sendMessage() {
   const content = inputMessage.value.trim()
   if (!content) return
+
+  const modelCode = selectedModel.value || 'qwen-turbo'
 
   let sessionId = sessionStore.currentSessionId
 
@@ -819,8 +818,8 @@ async function sendMessage() {
   chatStore.setLoading(sessionId, true)
   chatStore.setStreaming(sessionId, true)
 
-  // 滚动到底部
-  scrollToBottom()
+  // 滚动到底部（强制）
+  scrollToBottom(true)
 
   // 创建 AbortController 用于取消
   const abortController = new AbortController()
@@ -832,7 +831,7 @@ async function sendMessage() {
       {
         message: content,
         sessionId,
-        modelCode: selectedModel.value
+        modelCode
       },
       // onMessage 回调
       (parsed) => {
@@ -911,6 +910,7 @@ async function sendMessage() {
 
 // 同步模式备选方案
 async function sendSyncMode(content) {
+  const modelCode = selectedModel.value || 'qwen-turbo'
   let sessionId = sessionStore.currentSessionId
   if (!sessionId) {
     const session = await sessionStore.createNewSession({ name: content.slice(0, 20) })
@@ -933,11 +933,11 @@ async function sendSyncMode(content) {
     const res = await sendSyncMessage({
       message: content,
       sessionId,
-      modelCode: selectedModel.value
+      modelCode
     })
 
     chatStore.updateMessage(aiMessageId, {
-      content: res.content || res.message || '',
+      content: res.data?.content || res.content || res.message || '',
       loading: false
     })
   } catch (error) {
@@ -950,7 +950,7 @@ async function sendSyncMode(content) {
     chatStore.setLoading(sessionId, false)
   }
 
-  scrollToBottom()
+  scrollToBottom(true)
 }
 
 // 停止生成
@@ -1000,17 +1000,17 @@ function resetTextareaHeight() {
   }
 }
 
-function allowNewline(event) {
-  // 允许 Shift+Enter 换行
+function allowNewline() {
 }
 
 // 滚动到底部
-function scrollToBottom(smooth = false) {
+function scrollToBottom(force = false) {
+  if (!force && !isAtBottom) return
   nextTick(() => {
     if (messageContainerRef.value) {
       messageContainerRef.value.scrollTo({
         top: messageContainerRef.value.scrollHeight,
-        behavior: smooth ? 'smooth' : 'instant'
+        behavior: 'instant'
       })
     }
   })

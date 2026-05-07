@@ -12,6 +12,9 @@ import com.enterprise.ai.service.agent.tools.ToolManager;
 import com.enterprise.ai.service.model.ModelFactory;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,65 +123,77 @@ public class AgentService {
 
     public Flux<AgentStreamResponse> streamChat(AgentChatRequest request) {
         Long userId = getCurrentUserId();
+        String traceId = null;
         Sinks.Many<AgentStreamResponse> sink = Sinks.many().multicast().onBackpressureBuffer();
 
-        new Thread(() -> {
-            String traceId = null;
-            try {
-                traceId = traceService.startTrace(request.getSessionId(), userId, "enhanced-agent");
-                traceService.setUserInput(traceId, request.getMessage());
+        try {
+            traceId = traceService.startTrace(request.getSessionId(), userId, "enhanced-agent");
+            traceService.setUserInput(traceId, request.getMessage());
 
-                sink.tryEmitNext(AgentStreamResponse.builder()
-                        .type("start")
-                        .traceId(traceId)
-                        .success(true)
-                        .build());
+            sink.tryEmitNext(AgentStreamResponse.builder()
+                    .type("start")
+                    .traceId(traceId)
+                    .success(true)
+                    .build());
 
-                AgentConfig config = buildAgentConfig(request, userId);
-
-                StringBuilder fullResponse = new StringBuilder();
-
-                ChatModel chatModel = modelFactory.getChatModel(request.getModelCode());
-                if (chatModel == null) {
-                    throw new BusinessException("获取模型失败: " + request.getModelCode());
-                }
-
-                String response = chatModel.chat(request.getMessage());
-                fullResponse.append(response);
-
-                sink.tryEmitNext(AgentStreamResponse.builder()
-                        .type("content")
-                        .content(response)
-                        .traceId(traceId)
-                        .success(true)
-                        .build());
-
-                traceService.setAgentOutput(traceId, fullResponse.toString());
-                sink.tryEmitNext(AgentStreamResponse.builder()
-                        .type("end")
-                        .content(fullResponse.toString())
-                        .traceId(traceId)
-                        .success(true)
-                        .build());
-
-                traceService.endTrace(traceId, true, null);
-                sink.tryEmitComplete();
-
-                Thread.sleep(100);
-
-            } catch (Exception e) {
-                log.error("Agent流式聊天失败", e);
-                if (traceId != null) {
-                    traceService.endTrace(traceId, false, e.getMessage());
-                }
-                sink.tryEmitNext(AgentStreamResponse.builder()
-                        .type("error")
-                        .errorMessage(e.getMessage())
-                        .success(false)
-                        .build());
-                sink.tryEmitComplete();
+            StreamingChatModel streamingModel = modelFactory.getStreamingModel(request.getModelCode());
+            if (streamingModel == null) {
+                throw new BusinessException("流式模型不可用: " + request.getModelCode());
             }
-        }).start();
+
+            final String finalTraceId = traceId;
+            StringBuilder fullResponse = new StringBuilder();
+
+            streamingModel.chat(request.getMessage(), new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    fullResponse.append(partialResponse);
+                    sink.tryEmitNext(AgentStreamResponse.builder()
+                            .type("content")
+                            .content(partialResponse)
+                            .traceId(finalTraceId)
+                            .success(true)
+                            .build());
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse completeResponse) {
+                    traceService.setAgentOutput(finalTraceId, fullResponse.toString());
+                    sink.tryEmitNext(AgentStreamResponse.builder()
+                            .type("end")
+                            .content(fullResponse.toString())
+                            .traceId(finalTraceId)
+                            .success(true)
+                            .build());
+                    traceService.endTrace(finalTraceId, true, null);
+                    sink.tryEmitComplete();
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    log.error("Agent流式聊天失败", error);
+                    traceService.endTrace(finalTraceId, false, error.getMessage());
+                    sink.tryEmitNext(AgentStreamResponse.builder()
+                            .type("error")
+                            .errorMessage(error.getMessage())
+                            .success(false)
+                            .build());
+                    sink.tryEmitComplete();
+                }
+            });
+
+        } catch (Exception e) {
+            log.error("Agent流式聊天启动失败", e);
+            if (traceId != null) {
+                traceService.endTrace(traceId, false, e.getMessage());
+            }
+            sink.tryEmitNext(AgentStreamResponse.builder()
+                    .type("error")
+                    .errorMessage(e.getMessage())
+                    .success(false)
+                    .build());
+            sink.tryEmitComplete();
+        }
 
         return sink.asFlux()
                 .doOnCancel(() -> log.debug("流式响应被取消"))

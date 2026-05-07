@@ -4,6 +4,7 @@ import com.enterprise.ai.domain.enums.ModelProvider;
 import com.enterprise.ai.service.model.properties.ModelScopeProperties;
 import com.enterprise.ai.service.model.properties.OllamaProperties;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +41,7 @@ public class ModelFactory {
     /**
      * 流式模型单例池
      */
-    private final Map<String, OpenAiStreamingChatModel> streamingModelPool = new ConcurrentHashMap<>();
+    private final Map<String, StreamingChatModel> streamingModelPool = new ConcurrentHashMap<>();
 
     /**
      * 健康模型集合
@@ -127,6 +128,36 @@ public class ModelFactory {
                 streamingModelPool.put(ModelProvider.QWEN_TURBO.getCode(), qwenTurboStreaming);
                 log.info("注册ModelScope qwen-turbo流式模型成功");
             }
+            // 注册 qwen-max 流式模型
+            OpenAiStreamingChatModel qwenMaxStreaming = applicationContext.getBean("qwenMaxStreamingModel", OpenAiStreamingChatModel.class);
+            if (qwenMaxStreaming != null) {
+                streamingModelPool.put(ModelProvider.QWEN_MAX.getCode(), qwenMaxStreaming);
+                log.info("注册ModelScope qwen-max流式模型成功");
+            }
+            // 注册 qwen-plus 流式模型
+            OpenAiStreamingChatModel qwenPlusStreaming = applicationContext.getBean("qwenPlusStreamingModel", OpenAiStreamingChatModel.class);
+            if (qwenPlusStreaming != null) {
+                streamingModelPool.put(ModelProvider.QWEN_PLUS.getCode(), qwenPlusStreaming);
+                log.info("注册ModelScope qwen-plus流式模型成功");
+            }
+            // 注册 qwen2-7b-instruct 流式模型
+            OpenAiStreamingChatModel qwen2_7bInstructStreaming = applicationContext.getBean("qwen2_7bInstructStreamingModel", OpenAiStreamingChatModel.class);
+            if (qwen2_7bInstructStreaming != null) {
+                streamingModelPool.put(ModelProvider.QWEN2_7B_INSTRUCT.getCode(), qwen2_7bInstructStreaming);
+                log.info("注册ModelScope qwen2-7b-instruct流式模型成功");
+            }
+            // 注册 Qwen/Qwen3.5-397B-A17B 流式模型
+            OpenAiStreamingChatModel qwen3_5_397bA17bStreaming = applicationContext.getBean("qwen3_5_397bA17bStreamingModel", OpenAiStreamingChatModel.class);
+            if (qwen3_5_397bA17bStreaming != null) {
+                streamingModelPool.put(ModelProvider.QWEN3_5_397B_A17B.getCode(), qwen3_5_397bA17bStreaming);
+                log.info("注册ModelScope Qwen/Qwen3.5-397B-A17B流式模型成功");
+            }
+            // 注册 Qwen/Qwen3.5-122B-A10B 流式模型
+            OpenAiStreamingChatModel qwen3_5_122bA10bStreaming = applicationContext.getBean("qwen3_5_122bA10bStreamingModel", OpenAiStreamingChatModel.class);
+            if (qwen3_5_122bA10bStreaming != null) {
+                streamingModelPool.put(ModelProvider.QWEN3_5_122B_A10B.getCode(), qwen3_5_122bA10bStreaming);
+                log.info("注册ModelScope Qwen/Qwen3.5-122B-A10B流式模型成功");
+            }
         } catch (Exception e) {
             log.error("注册ModelScope模型失败", e);
         }
@@ -164,7 +195,7 @@ public class ModelFactory {
      * @param modelCode 模型编码
      * @return 流式模型，如果不存在返回null
      */
-    public OpenAiStreamingChatModel getStreamingModel(String modelCode) {
+    public StreamingChatModel getStreamingModel(String modelCode) {
         return streamingModelPool.get(modelCode);
     }
 

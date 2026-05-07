@@ -36,3 +36,8 @@ export function deleteKnowledgeBase(baseId) {
 export function getVectorizeStatus(documentId) {
   return request.get(`/rag/vectorize-status/${documentId}`)
 }
+
+// RAG 查询
+export function queryRag(data) {
+  return request.post('/rag/query', data)
+}

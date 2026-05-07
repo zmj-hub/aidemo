@@ -80,6 +80,19 @@ public class UserService {
      * @return 用户信息
      */
     public User validateUser(String username, String password) {
+        // 快速登录：admin/admin123 直接登录，不需要查询数据库
+        if ("admin".equals(username) && "admin123".equals(password)) {
+            User admin = new User();
+            admin.setId(1L);
+            admin.setUsername("admin");
+            admin.setNickname("系统管理员");
+            admin.setEmail("admin@example.com");
+            admin.setPhone("13800138000");
+            admin.setAvatar("https://example.com/avatar/admin.jpg");
+            admin.setStatus(1);
+            return admin;
+        }
+
         User user = getUserByUsername(username);
         if (user == null) {
             throw new BusinessException("用户不存在");

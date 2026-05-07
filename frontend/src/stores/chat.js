@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { getChatHistory, stopChat } from '@/api/agent'
+import { ref } from 'vue'
 
 export const useChatStore = defineStore('chat', () => {
   // 消息列表（按会话ID分组）
@@ -11,9 +10,6 @@ export const useChatStore = defineStore('chat', () => {
 
   // 流式输出状态（按会话ID分组）
   const streamingMap = ref({})
-
-  // 当前正在流式输出的消息内容
-  const currentReplyMap = ref({})
 
   // AbortController 用于取消请求
   const abortControllerMap = ref({})
@@ -82,7 +78,6 @@ export const useChatStore = defineStore('chat', () => {
     delete messagesMap.value[sessionId]
     delete loadingMap.value[sessionId]
     delete streamingMap.value[sessionId]
-    delete currentReplyMap.value[sessionId]
     delete abortControllerMap.value[sessionId]
   }
 
@@ -96,38 +91,13 @@ export const useChatStore = defineStore('chat', () => {
     streamingMap.value[sessionId] = status
   }
 
-  // 更新当前回复内容
-  function updateCurrentReply(sessionId, content) {
-    currentReplyMap.value[sessionId] = content
-  }
-
-  // 获取历史记录
-  async function fetchHistory(sessionId, params) {
-    try {
-      setLoading(sessionId, true)
-      const res = await getChatHistory(sessionId, params)
-      messagesMap.value[sessionId] = res.list || res.data || []
-      return res
-    } catch (error) {
-      throw error
-    } finally {
-      setLoading(sessionId, false)
-    }
-  }
-
   // 停止生成
   async function stopGeneration(sessionId) {
     try {
-      // 取消当前的 fetch 请求
       if (abortControllerMap.value[sessionId]) {
         abortControllerMap.value[sessionId].abort()
         delete abortControllerMap.value[sessionId]
       }
-
-      // 调用后端停止接口
-      await stopChat(sessionId)
-
-      // 重置状态
       setStreaming(sessionId, false)
       setLoading(sessionId, false)
     } catch (error) {
@@ -144,7 +114,6 @@ export const useChatStore = defineStore('chat', () => {
     messagesMap,
     loadingMap,
     streamingMap,
-    currentReplyMap,
     getMessages,
     isLoading,
     isStreaming,
@@ -155,8 +124,6 @@ export const useChatStore = defineStore('chat', () => {
     deleteSessionMessages,
     setLoading,
     setStreaming,
-    updateCurrentReply,
-    fetchHistory,
     stopGeneration,
     setAbortController
   }

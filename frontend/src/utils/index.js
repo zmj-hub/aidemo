@@ -25,6 +25,42 @@ export function formatDate(date, format = 'YYYY-MM-DD HH:mm:ss') {
 }
 
 /**
+ * 格式化相对时间
+ * @param {Date|string|number} date - 日期对象或时间戳
+ * @returns {string} 相对时间描述
+ */
+export function formatRelativeTime(date) {
+  if (!date) return ''
+
+  const d = new Date(date)
+  const now = new Date()
+  const diff = now - d
+
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const months = Math.floor(days / 30)
+  const years = Math.floor(months / 12)
+
+  if (seconds < 60) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 30) return `${days}天前`
+  if (months < 12) return `${months}个月前`
+  return `${years}年前`
+}
+
+/**
+ * 格式化日期时间（带日期时间分隔符）
+ * @param {Date|string|number} date - 日期对象或时间戳
+ * @returns {string} 格式化后的日期时间字符串
+ */
+export function formatDateTime(date) {
+  return formatDate(date, 'YYYY-MM-DD HH:mm:ss')
+}
+
+/**
  * 防抖函数
  * @param {Function} fn - 需要防抖的函数
  * @param {number} delay - 延迟时间（毫秒）

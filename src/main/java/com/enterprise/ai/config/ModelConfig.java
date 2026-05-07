@@ -133,6 +133,71 @@ public class ModelConfig {
     }
 
     @Bean
+    public OpenAiStreamingChatModel qwenMaxStreamingModel() {
+        if (!modelScopeProperties.getEnabled()) {
+            return null;
+        }
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(modelScopeProperties.getBaseUrl())
+                .apiKey(modelScopeProperties.getApiKey())
+                .modelName("qwen-max")
+                .timeout(Duration.ofMillis(modelScopeProperties.getTimeout()))
+                .build();
+    }
+
+    @Bean
+    public OpenAiStreamingChatModel qwenPlusStreamingModel() {
+        if (!modelScopeProperties.getEnabled()) {
+            return null;
+        }
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(modelScopeProperties.getBaseUrl())
+                .apiKey(modelScopeProperties.getApiKey())
+                .modelName("qwen-plus")
+                .timeout(Duration.ofMillis(modelScopeProperties.getTimeout()))
+                .build();
+    }
+
+    @Bean
+    public OpenAiStreamingChatModel qwen2_7bInstructStreamingModel() {
+        if (!modelScopeProperties.getEnabled()) {
+            return null;
+        }
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(modelScopeProperties.getBaseUrl())
+                .apiKey(modelScopeProperties.getApiKey())
+                .modelName("qwen2-7b-instruct")
+                .timeout(Duration.ofMillis(modelScopeProperties.getTimeout()))
+                .build();
+    }
+
+    @Bean
+    public OpenAiStreamingChatModel qwen3_5_397bA17bStreamingModel() {
+        if (!modelScopeProperties.getEnabled()) {
+            return null;
+        }
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(modelScopeProperties.getBaseUrl())
+                .apiKey(modelScopeProperties.getApiKey())
+                .modelName("Qwen/Qwen3.5-397B-A17B")
+                .timeout(Duration.ofMillis(modelScopeProperties.getTimeout()))
+                .build();
+    }
+
+    @Bean
+    public OpenAiStreamingChatModel qwen3_5_122bA10bStreamingModel() {
+        if (!modelScopeProperties.getEnabled()) {
+            return null;
+        }
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(modelScopeProperties.getBaseUrl())
+                .apiKey(modelScopeProperties.getApiKey())
+                .modelName("Qwen/Qwen3.5-122B-A10B")
+                .timeout(Duration.ofMillis(modelScopeProperties.getTimeout()))
+                .build();
+    }
+
+    @Bean
     public OpenAiTokenCountEstimator modelScopeTokenizer() {
         // OpenAiTokenCountEstimator 需要提供模型名称参数
         return new OpenAiTokenCountEstimator("gpt-3.5-turbo");

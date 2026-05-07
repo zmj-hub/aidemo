@@ -15,7 +15,7 @@ export const useSessionStore = defineStore('session', () => {
   const sessions = ref([])
   const currentSessionId = ref(null)
   const loading = ref(false)
-  const showArchived = ref(false) // 是否显示归档会话
+  const showArchived = ref(false)
 
   // 计算属性 - 当前选中的会话
   const currentSession = computed(() =>
@@ -24,18 +24,18 @@ export const useSessionStore = defineStore('session', () => {
 
   const sessionCount = computed(() => sessions.value.length)
 
-  // 计算属性 - 活跃会话（非归档状态）
+  // 计算属性 - 活跃会话（非归档状态，后端 archived=false）
   const activeSessions = computed(() => {
     return sessions.value
-      .filter(s => s.status !== 'ARCHIVED')
-      .sort((a, b) => new Date(b.updateTime || b.createdAt) - new Date(a.updateTime || a.createdAt))
+      .filter(s => !s.archived)
+      .sort((a, b) => new Date(b.lastMessageTime || b.updateTime) - new Date(a.lastMessageTime || a.updateTime))
   })
 
-  // 计算属性 - 已归档会话
+  // 计算属性 - 已归档会话（后端 archived=true）
   const archivedSessions = computed(() => {
     return sessions.value
-      .filter(s => s.status === 'ARCHIVED')
-      .sort((a, b) => new Date(b.archivedAt || b.updateTime || b.createdAt) - new Date(a.archivedAt || a.updateTime || a.createdAt))
+      .filter(s => s.archived)
+      .sort((a, b) => new Date(b.updateTime || b.lastMessageTime) - new Date(a.updateTime || b.lastMessageTime))
   })
 
   // Actions
@@ -48,10 +48,16 @@ export const useSessionStore = defineStore('session', () => {
   async function fetchSessions(params = {}) {
     loading.value = true
     try {
-      const res = await getSessionList(params)
-      sessions.value = res.list || res.data || []
+      const res = await getSessionList({ includeArchived: params.includeArchived ?? false })
+      // 后端返回 Result<List<SessionInfo>>，axios拦截器取了 response.data
+      // res = { code: 200, msg: "...", data: [SessionInfo, ...] }
+      const list = Array.isArray(res.data) ? res.data : []
+      sessions.value = list.map(s => ({
+        ...s,
+        name: s.title || s.name || '未命名会话',
+        status: s.archived ? 'ARCHIVED' : 'ACTIVE'
+      }))
 
-      // 如果没有当前选中的会话，自动选中第一个活跃会话
       if (!currentSessionId.value && activeSessions.value.length > 0) {
         currentSessionId.value = activeSessions.value[0].id
       }
@@ -68,32 +74,26 @@ export const useSessionStore = defineStore('session', () => {
   /**
    * 创建新会话
    * @param {Object} data - 会话数据
-   * @param {string} data.title - 会话标题
-   * @param {string} data.description - 会话描述（可选）
    */
   async function createNewSession(data = {}) {
     try {
+      // 后端 SessionCreateRequest 需要 title(可选) + modelCode(必填)
       const sessionData = {
         title: data.title || data.name || '新会话',
-        description: data.description || ''
+        modelCode: data.modelCode || 'qwen-turbo'
       }
       const res = await createSession(sessionData)
 
-      // 确保返回的数据有正确的结构
+      // 后端返回 Result<SessionInfo>，axios拦截器取了 response.data
+      // res.data = { id, title, modelCode, userId, archived, lastMessageTime, createTime, updateTime }
+      const rawData = res.data || {}
       const newSession = {
-        id: res.id || res.data?.id,
-        name: res.name || res.title || res.data?.name || sessionData.title,
-        title: res.name || res.title || res.data?.title || sessionData.title,
-        status: res.status || 'ACTIVE',
-        createTime: res.createTime || res.createdAt || new Date().toISOString(),
-        updateTime: res.updateTime || res.updatedAt || new Date().toISOString(),
-        ...res,
-        ...(res.data || {})
+        ...rawData,
+        name: rawData.title || data.title || data.name || '新会话',
+        status: rawData.archived ? 'ARCHIVED' : 'ACTIVE'
       }
 
-      // 添加到列表头部
       sessions.value.unshift(newSession)
-      // 自动选中新创建的会话
       currentSessionId.value = newSession.id
 
       return newSession
@@ -118,7 +118,7 @@ export const useSessionStore = defineStore('session', () => {
       const res = await updateSession(sessionId, data)
       const index = sessions.value.findIndex(s => s.id === sessionId)
       if (index !== -1) {
-        sessions.value[index] = { ...sessions.value[index], ...res, ...data }
+        sessions.value[index] = { ...sessions.value[index], ...res.data, ...data }
       }
       return res
     } catch (error) {
@@ -135,7 +135,6 @@ export const useSessionStore = defineStore('session', () => {
       await deleteSession(sessionId)
       sessions.value = sessions.value.filter(s => s.id !== sessionId)
 
-      // 如果删除的是当前会话，切换到第一个活跃会话
       if (currentSessionId.value === sessionId) {
         const firstActive = activeSessions.value[0]
         currentSessionId.value = firstActive ? firstActive.id : null
@@ -181,10 +180,9 @@ export const useSessionStore = defineStore('session', () => {
       await archiveSessionApi(sessionId)
       const session = sessions.value.find(s => s.id === sessionId)
       if (session) {
+        session.archived = true
         session.status = 'ARCHIVED'
-        session.archivedAt = new Date().toISOString()
 
-        // 如果归档的是当前会话，切换到第一个活跃会话
         if (currentSessionId.value === sessionId) {
           const firstActive = activeSessions.value[0]
           currentSessionId.value = firstActive ? firstActive.id : null
@@ -205,6 +203,7 @@ export const useSessionStore = defineStore('session', () => {
       await unarchiveSessionApi(sessionId)
       const session = sessions.value.find(s => s.id === sessionId)
       if (session) {
+        session.archived = false
         session.status = 'ACTIVE'
         delete session.archivedAt
       }
@@ -227,10 +226,10 @@ export const useSessionStore = defineStore('session', () => {
    */
   function selectSession(sessionId) {
     const session = sessions.value.find(s => s.id === sessionId)
-    if (session && session.status !== 'ARCHIVED') {
+    if (session && !session.archived) {
       currentSessionId.value = sessionId
       return true
-    } else if (session && session.status === 'ARCHIVED') {
+    } else if (session && session.archived) {
       console.warn('该会话已归档，请先恢复')
       return false
     }
