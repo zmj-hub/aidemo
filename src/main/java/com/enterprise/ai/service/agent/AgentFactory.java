@@ -1,288 +1,83 @@
 package com.enterprise.ai.service.agent;
 
-import com.enterprise.ai.common.exception.BusinessException;
-import com.enterprise.ai.service.agent.memory.RedisShortTermMemory;
-import com.enterprise.ai.service.agent.tools.Tool;
-import com.enterprise.ai.service.agent.tools.ToolManager;
-import com.enterprise.ai.service.model.ModelFactory;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
+import com.enterprise.ai.tools.HttpTool;
+import com.enterprise.ai.tools.MemoryTools;
+import com.enterprise.ai.tools.SystemTools;
+import io.agentscope.core.model.ModelRegistry;
+import io.agentscope.core.session.Session;
+import io.agentscope.core.state.SimpleSessionKey;
+import io.agentscope.core.tool.Toolkit;
+import io.agentscope.harness.agent.HarnessAgent;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Agent工厂类
- * 支持动态创建Agent实例，可按模型、记忆策略、工具集灵活配置
- */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AgentFactory {
 
-    @Autowired
-    private ModelFactory modelFactory;
+    private final Path workspacePath;
+    private final Session jsonSession;
+    private final Map<String, HarnessAgent> agentCache = new ConcurrentHashMap<>();
 
-    @Autowired
-    private ToolManager toolManager;
+    public HarnessAgent createAgent(String sessionId, String modelId, String systemPrompt,
+                                     List<String> toolNames) {
+        String cacheKey = sessionId + ":" + modelId;
+        agentCache.remove(cacheKey);
 
-    @Autowired
-    private TraceService traceService;
+        Toolkit toolkit = buildToolkit(toolNames);
 
-    @Autowired
-    private RedisShortTermMemory redisShortTermMemory;
+        HarnessAgent agent = HarnessAgent.builder()
+                .name("agent-" + sessionId)
+                .model(modelId)
+                .sysPrompt(systemPrompt != null ? systemPrompt : "你是一个有帮助的AI助手。")
+                .toolkit(toolkit)
+                .workspace(workspacePath)
+                .build();
 
-    /**
-     * Agent实例缓存池
-     */
-    private final Map<String, Object> agentPool = new ConcurrentHashMap<>();
-
-    /**
-     * 创建Agent实例
-     * 
-     * @param config Agent配置
-     * @return Agent实例
-     */
-    public <T> T createAgent(AgentConfig config, Class<T> agentInterface) {
-        validateConfig(config);
-        
-        String agentKey = buildAgentKey(config);
-        
-        @SuppressWarnings("unchecked")
-        T cachedAgent = (T) agentPool.get(agentKey);
-        if (cachedAgent != null) {
-            log.info("返回缓存的Agent实例: {}", agentKey);
-            return cachedAgent;
+        try {
+            agent.loadIfExists(jsonSession, SimpleSessionKey.of(sessionId));
+        } catch (Exception e) {
+            log.debug("No existing session state for: {}", sessionId);
         }
-        
-        T agent = buildAgent(config, agentInterface);
-        agentPool.put(agentKey, agent);
-        log.info("创建新的Agent实例: {}", agentKey);
-        
+
+        agentCache.put(cacheKey, agent);
+        log.debug("Created agent for session={}, model={}", sessionId, modelId);
         return agent;
     }
 
-    /**
-     * 创建默认Agent
-     * 
-     * @param modelCode 模型编码
-     * @param sessionId 会话ID
-     * @param userId 用户ID
-     * @return Agent实例
-     */
-    public <T> T createDefaultAgent(String modelCode, String sessionId, Long userId, Class<T> agentInterface) {
-        AgentConfig config = AgentConfig.builder()
-                .agentName("default-agent")
-                .modelCode(modelCode)
-                .sessionId(sessionId)
-                .userId(userId)
-                .systemPrompt("你是一个有帮助的AI助手。")
-                .memoryStrategy(AgentConfig.MemoryStrategy.SHORT_TERM)
-                .memoryWindowSize(10)
-                .tools(toolManager.getAllTools())
-                .enableTracing(true)
-                .build();
-        
-        return createAgent(config, agentInterface);
+    public HarnessAgent getAgent(String sessionId, String modelId) {
+        return agentCache.get(sessionId + ":" + modelId);
     }
 
-    /**
-     * 创建带指定工具的Agent
-     * 
-     * @param modelCode 模型编码
-     * @param sessionId 会话ID
-     * @param userId 用户ID
-     * @param toolNames 工具名称列表
-     * @param agentInterface Agent接口类
-     * @return Agent实例
-     */
-    public <T> T createAgentWithTools(String modelCode, String sessionId, Long userId, 
-                                       List<String> toolNames, Class<T> agentInterface) {
-        List<Tool> tools = toolManager.getTools(toolNames);
-        
-        AgentConfig config = AgentConfig.builder()
-                .agentName("custom-agent")
-                .modelCode(modelCode)
-                .sessionId(sessionId)
-                .userId(userId)
-                .systemPrompt("你是一个有帮助的AI助手。")
-                .memoryStrategy(AgentConfig.MemoryStrategy.SHORT_TERM)
-                .memoryWindowSize(10)
-                .tools(tools)
-                .enableTracing(true)
-                .build();
-        
-        return createAgent(config, agentInterface);
+    public void removeAgent(String sessionId, String modelId) {
+        agentCache.remove(sessionId + ":" + modelId);
     }
 
-    /**
-     * 销毁Agent实例
-     * 
-     * @param config Agent配置
-     */
-    public void destroyAgent(AgentConfig config) {
-        String agentKey = buildAgentKey(config);
-        agentPool.remove(agentKey);
-        log.info("销毁Agent实例: {}", agentKey);
+    public void clearAll() {
+        agentCache.clear();
     }
 
-    /**
-     * 销毁会话的所有Agent
-     * 
-     * @param sessionId 会话ID
-     */
-    public void destroyAgentsBySession(String sessionId) {
-        Set<String> keysToRemove = agentPool.keySet().stream()
-                .filter(key -> key.contains(sessionId))
-                .collect(java.util.stream.Collectors.toSet());
-        
-        for (String key : keysToRemove) {
-            agentPool.remove(key);
+    private Toolkit buildToolkit(List<String> toolNames) {
+        Toolkit toolkit = new Toolkit();
+        boolean allTools = toolNames == null || toolNames.isEmpty();
+
+        if (allTools || toolNames.contains("time") || toolNames.contains("get_current_time")) {
+            toolkit.registerTool(new SystemTools());
         }
-        log.info("销毁会话的所有Agent: sessionId={}, count={}", sessionId, keysToRemove.size());
-    }
-
-    /**
-     * 清空所有Agent缓存
-     */
-    public void clearAllAgents() {
-        agentPool.clear();
-        log.info("清空所有Agent缓存");
-    }
-
-    /**
-     * 构建Agent唯一键
-     * 
-     * @param config Agent配置
-     * @return 唯一键
-     */
-    private String buildAgentKey(AgentConfig config) {
-        return String.format("%s:%s:%s:%s", 
-                config.getAgentName(), 
-                config.getModelCode(), 
-                config.getSessionId(),
-                config.getMemoryStrategy());
-    }
-
-    /**
-     * 校验配置
-     * 
-     * @param config Agent配置
-     */
-    private void validateConfig(AgentConfig config) {
-        if (config.getAgentName() == null || config.getAgentName().isBlank()) {
-            throw new BusinessException("Agent名称不能为空");
+        if (allTools || toolNames.contains("http") || toolNames.contains("http_request")) {
+            toolkit.registerTool(new HttpTool());
         }
-        
-        if (config.getModelCode() == null || config.getModelCode().isBlank()) {
-            throw new BusinessException("模型编码不能为空");
-        }
-        
-        if (!modelFactory.isModelAvailable(config.getModelCode())) {
-            throw new BusinessException("模型不可用: " + config.getModelCode());
-        }
-    }
-
-    /**
-     * 构建Agent实例
-     * 
-     * @param config Agent配置
-     * @param agentInterface Agent接口
-     * @return Agent实例
-     */
-    private <T> T buildAgent(AgentConfig config, Class<T> agentInterface) {
-        ChatModel chatModel = modelFactory.getChatModel(config.getModelCode());
-        if (chatModel == null) {
-            throw new BusinessException("获取模型失败: " + config.getModelCode());
-        }
-        
-        return AiServices.create(agentInterface, chatModel);
-    }
-
-    /**
-     * 构建记忆
-     * 
-     * @param config Agent配置
-     * @return 记忆实例
-     */
-    private ChatMemory buildChatMemory(AgentConfig config) {
-        switch (config.getMemoryStrategy()) {
-            case SHORT_TERM:
-                if (config.getSessionId() != null) {
-                    return MessageWindowChatMemory.builder()
-                            .id(config.getSessionId())
-                            .chatMemoryStore(redisShortTermMemory)
-                            .maxMessages(config.getMemoryWindowSize())
-                            .build();
-                } else {
-                    return MessageWindowChatMemory.withMaxMessages(config.getMemoryWindowSize());
-                }
-            case NONE:
-                return null;
-            case LONG_TERM:
-            case HYBRID:
-            default:
-                log.warn("暂不支持的记忆策略: {}, 使用短期记忆替代", config.getMemoryStrategy());
-                return MessageWindowChatMemory.withMaxMessages(config.getMemoryWindowSize());
-        }
-    }
-
-    /**
-     * 将自定义工具转换为langchain4j工具
-     * 
-     * @param tools 自定义工具列表
-     * @return langchain4j工具列表
-     */
-    private List<Object> convertToLangchain4jTools(List<Tool> tools) {
-        List<Object> result = new ArrayList<>();
-        for (Tool tool : tools) {
-            result.add(new Langchain4jToolAdapter(tool, traceService));
-        }
-        return result;
-    }
-
-    /**
-     * Langchain4j工具适配器
-     */
-    private static class Langchain4jToolAdapter {
-        private final Tool tool;
-        private final TraceService traceService;
-        private String currentTraceId;
-
-        public Langchain4jToolAdapter(Tool tool, TraceService traceService) {
-            this.tool = tool;
-            this.traceService = traceService;
+        if (allTools || toolNames.contains("memory_add") || toolNames.contains("memory_get")) {
+            toolkit.registerTool(new MemoryTools());
         }
 
-        public void setTraceId(String traceId) {
-            this.currentTraceId = traceId;
-        }
-
-        public String execute(String toolName, Map<String, Object> params) {
-            String callId = null;
-            if (currentTraceId != null) {
-                callId = traceService.startToolCall(currentTraceId, toolName, params);
-            }
-            
-            com.enterprise.ai.service.agent.tools.ToolResult result = tool.execute(params);
-            
-            if (currentTraceId != null && callId != null) {
-                traceService.endToolCall(currentTraceId, callId, result.isSuccess(), 
-                        result.getErrorMessage(), result.getData());
-            }
-            
-            if (result.isSuccess()) {
-                return result.getData() != null ? result.getData().toString() : "执行成功";
-            } else {
-                return "执行失败: " + result.getErrorMessage();
-            }
-        }
+        return toolkit;
     }
 }

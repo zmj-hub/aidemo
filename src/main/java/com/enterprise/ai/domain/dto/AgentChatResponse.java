@@ -1,6 +1,5 @@
 package com.enterprise.ai.domain.dto;
 
-import com.enterprise.ai.service.agent.TraceRecord;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Agent聊天响应DTO
@@ -77,11 +77,11 @@ public class AgentChatResponse {
      * 工具调用记录（调试模式返回）
      */
     @Schema(description = "工具调用记录")
-    private List<TraceRecord.ToolCallRecord> toolCalls;
+    private List<Map<String, Object>> toolCalls;
 
     /**
-     * 完整思考链（调试模式返回）
+     * 完整追踪信息（调试模式返回）
      */
-    @Schema(description = "完整思考链")
-    private TraceRecord traceRecord;
+    @Schema(description = "完整追踪信息")
+    private Map<String, Object> traceRecord;
 }

@@ -1,253 +1,99 @@
 package com.enterprise.ai.service.rag;
 
-import cn.hutool.core.util.StrUtil;
-import com.enterprise.ai.common.exception.BusinessException;
-import com.enterprise.ai.common.utils.UserContextHolder;
-import com.enterprise.ai.config.RagConfig;
-import com.enterprise.ai.config.RagProperties;
-import com.enterprise.ai.domain.dto.DocumentInfo;
-import com.enterprise.ai.domain.dto.RagQueryRequest;
+import com.enterprise.ai.config.PlatformProperties;
 import com.enterprise.ai.domain.dto.RagQueryResponse;
-import com.enterprise.ai.domain.entity.Document;
-import com.enterprise.ai.service.model.ChatModelService;
-import com.enterprise.ai.service.model.ModelFactory;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-
-import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
-import dev.langchain4j.store.embedding.EmbeddingMatch;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import io.agentscope.core.model.Model;
+import io.agentscope.core.model.ModelRegistry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * RAG服务类
- * 支持动态选择对话模型和Embedding模型，提供RAG问答，支持答案溯源
- */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RagService {
 
-    @Autowired
-    private RagProperties ragProperties;
+    private final PlatformProperties platformProperties;
+    private final DocumentService documentService;
 
-    @Autowired
-    private RagConfig ragConfig;
-
-    @Autowired
-    private EmbeddingStore<TextSegment> embeddingStore;
-
-    @Autowired
-    private ChatModelService chatModelService;
-
-    @Autowired
-    private ModelFactory modelFactory;
-
-    /**
-     * 文档元数据缓存，用于快速查找文档名称
-     */
-    @Autowired
-    private DocumentService documentService;
-
-    /**
-     * RAG查询
-     * 
-     * @param request 查询请求
-     * @return 查询响应
-     */
-    public RagQueryResponse query(RagQueryRequest request) {
-        Long userId = UserContextHolder.getUserId();
-        if (userId == null) {
-            throw new BusinessException("请先登录");
-        }
-
-        String chatModelName = StrUtil.isBlank(request.getChatModel()) 
-                ? ragProperties.getDefaultChatModel() 
-                : request.getChatModel();
-        String embeddingModelName = StrUtil.isBlank(request.getEmbeddingModel()) 
-                ? ragProperties.getDefaultEmbeddingModel() 
-                : request.getEmbeddingModel();
-        Integer maxResults = request.getMaxResults() != null 
-                ? request.getMaxResults() 
-                : ragProperties.getMaxResults();
-        Double minScore = request.getMinScore() != null 
-                ? request.getMinScore() 
-                : ragProperties.getMinScore();
-
-        List<EmbeddingMatch<TextSegment>> relevantSegments = retrieveRelevantSegments(
-                request.getQuery(), embeddingModelName, userId, maxResults, minScore);
-
-        String context = buildContext(relevantSegments);
-
-        String answer = generateAnswer(request.getQuery(), context, chatModelName);
-
-        List<RagQueryResponse.SourceDocument> sources = buildSourceDocuments(relevantSegments);
-
-        return RagQueryResponse.builder()
-                .answer(answer)
-                .chatModel(chatModelName)
-                .embeddingModel(embeddingModelName)
-                .sources(sources)
+    public RagQueryResponse query(String queryText, String chatModelCode, int maxResults, double minScore) {
+        String modelId = resolveModelId(chatModelCode);
+        RagQueryResponse response = RagQueryResponse.builder()
+                .chatModel(modelId)
+                .embeddingModel("none") // 暂未配置Embedding模型
+                .sources(new ArrayList<>())
                 .build();
-    }
 
-    /**
-     * 检索相关的文本片段
-     * 
-     * @param query 查询问题
-     * @param embeddingModelName Embedding模型名称
-     * @param userId 用户ID
-     * @param maxResults 最大返回结果数
-     * @param minScore 最小相似度阈值
-     * @return 相关的文本片段列表
-     */
-    private List<EmbeddingMatch<TextSegment>> retrieveRelevantSegments(String query, 
-            String embeddingModelName, Long userId, Integer maxResults, Double minScore) {
-        EmbeddingModel embeddingModel = ragConfig.getEmbeddingModel(embeddingModelName);
-
-        List<EmbeddingMatch<TextSegment>> allMatches = new ArrayList<>();
         try {
-            if (embeddingModel != null) {
-                allMatches = embeddingStore.search(
-                        EmbeddingSearchRequest.builder()
-                                .queryEmbedding(embeddingModel.embed(query).content())
-                                .maxResults(maxResults * 2)
-                                .minScore(0.0)
-                                .build()
-                ).matches();
-            }
-        } catch (Exception e) {
-            log.warn("Embedding模型调用失败", e);
-        }
+            // 简化版RAG：基于文档内容的关键词检索
+            StringBuilder context = new StringBuilder();
+            List<RagQueryResponse.SourceDocument> sources = new ArrayList<>();
 
-        return allMatches.stream()
-                .filter(match -> {
-                    String segmentUserId = match.embedded().metadata().getString("user_id");
-                    return segmentUserId != null && segmentUserId.equals(userId.toString());
-                })
-                .filter(match -> match.score() >= minScore)
-                .limit(maxResults)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 构建上下文
-     * 
-     * @param segments 相关文本片段
-     * @return 上下文字符串
-     */
-    private String buildContext(List<EmbeddingMatch<TextSegment>> segments) {
-        if (segments.isEmpty()) {
-            return "没有找到相关的文档内容。";
-        }
-
-        StringBuilder context = new StringBuilder();
-        context.append("以下是相关的文档内容：\n\n");
-
-        int index = 1;
-        for (EmbeddingMatch<TextSegment> match : segments) {
-            TextSegment segment = match.embedded();
-            String documentId = segment.metadata().getString("document_id");
-            
-            context.append("[文档").append(index).append("] ");
-            if (documentId != null) {
-                context.append("(文档ID: ").append(documentId).append(") ");
-            }
-            context.append("相似度: ").append(String.format("%.2f", match.score())).append("\n");
-            context.append(segment.text()).append("\n\n");
-            index++;
-        }
-
-        return context.toString();
-    }
-
-    /**
-     * 生成答案
-     * 
-     * @param query 用户查询
-     * @param context 上下文
-     * @param chatModelName Chat模型名称
-     * @return 生成的答案
- */
-    private String generateAnswer(String query, String context, String chatModelName) {
-        String systemPrompt = "你是一个专业的问答助手。请根据提供的文档内容回答用户的问题。\n" +
-                "回答要求：\n" +
-                "1. 只基于提供的文档内容回答，不要使用文档中没有的信息\n" +
-                "2. 如果文档中没有相关信息，请明确告知用户\n" +
-                "3. 回答要简洁明了，重点突出\n" +
-                "4. 可以适当引用文档中的内容来支持你的回答\n\n" +
-                "文档内容：\n" + context;
-
-        ChatModel chatModel = getChatModel(chatModelName);
-        
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(SystemMessage.from(systemPrompt));
-        messages.add(UserMessage.from(query));
-        
-        dev.langchain4j.model.chat.response.ChatResponse response = chatModel.chat(messages);
-
-        return response.aiMessage().text();
-    }
-
-    /**
-     * 获取Chat模型
-     * 
-     * @param modelName 模型名称
-     * @return Chat模型
-     */
-    private ChatModel getChatModel(String modelName) {
-        ChatModel model = modelFactory.getChatModel(modelName);
-        if (model == null) {
-            throw new BusinessException("不支持的Chat模型：" + modelName);
-        }
-        return model;
-    }
-
-    /**
-     * 构建溯源文档列表
-     * 
-     * @param segments 相关文本片段
-     * @return 溯源文档列表
-     */
-    private List<RagQueryResponse.SourceDocument> buildSourceDocuments(
-            List<EmbeddingMatch<TextSegment>> segments) {
-        if (segments.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        Map<String, Document> documentCache = new ConcurrentHashMap<>();
-        
-        return segments.stream()
-                .map(match -> {
-                    TextSegment segment = match.embedded();
-                    String documentId = segment.metadata().getString("document_id");
-                    
-                    String documentName = "未知文档";
-                    if (documentId != null) {
-                        try {
-                            DocumentInfo docInfo = documentService.getDocumentById(documentId);
-                            documentName = docInfo.getDocumentName();
-                        } catch (Exception e) {
-                        }
+            var docs = documentService.getUserDocuments();
+            for (var docInfo : docs) {
+                if (sources.size() >= maxResults) break;
+                // 简单的关键词匹配
+                String docName = docInfo.getDocumentName() != null ? docInfo.getDocumentName().toLowerCase() : "";
+                String queryLower = queryText.toLowerCase();
+                if (docName.contains(queryLower) || queryLower.contains(docName)
+                        || (docInfo.getDescription() != null && docInfo.getDescription().toLowerCase().contains(queryLower))) {
+                    sources.add(RagQueryResponse.SourceDocument.builder()
+                            .documentId(docInfo.getDocumentId())
+                            .documentName(docInfo.getDocumentName())
+                            .content(docInfo.getDescription() != null ? docInfo.getDescription() : docName)
+                            .score(1.0)
+                            .build());
+                    if (docInfo.getDescription() != null) {
+                        context.append(docInfo.getDescription()).append("\n");
                     }
+                }
+            }
+            response.setSources(sources);
 
-                    return RagQueryResponse.SourceDocument.builder()
-                            .documentId(documentId)
-                            .documentName(documentName)
-                            .content(segment.text())
-                            .score(match.score())
-                            .build();
-                })
-                .collect(Collectors.toList());
+            if (!sources.isEmpty() && ModelRegistry.canResolve(modelId)) {
+                Model model = ModelRegistry.resolve(modelId);
+                String prompt = String.format(
+                        "基于以下文档内容回答问题。仅使用提供的文档内容，如果文档中没有相关信息请明确说明。\n\n文档内容:\n%s\n问题: %s",
+                        context.toString(), queryText);
+
+                Msg userMsg = Msg.builder()
+                        .role(MsgRole.USER)
+                        .textContent(prompt)
+                        .build();
+                String answerText = model.stream(List.of(userMsg), List.of(), null)
+                        .collectList()
+                        .block()
+                        .stream()
+                        .map(r -> {
+                            if (!r.getContent().isEmpty() && r.getContent().get(0) instanceof io.agentscope.core.message.TextBlock tb) {
+                                return tb.getText();
+                            }
+                            return "";
+                        })
+                        .reduce("", (a, b) -> a + b);
+                response.setAnswer(!answerText.isEmpty() ? answerText : "无法生成回答");
+            } else {
+                response.setAnswer("未找到相关文档或模型不可用。请先上传相关文档。");
+            }
+
+        } catch (Exception e) {
+            log.error("RAG query failed", e);
+            response.setAnswer("RAG查询失败: " + e.getMessage());
+        }
+
+        return response;
+    }
+
+    private String resolveModelId(String modelCode) {
+        if (modelCode == null) {
+            modelCode = platformProperties.getRag().getDefaultChatModel();
+        }
+        if (modelCode.contains(":")) return modelCode;
+        return "modelscope:" + modelCode;
     }
 }

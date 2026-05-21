@@ -1,6 +1,5 @@
 package com.enterprise.ai.domain.dto;
 
-import com.enterprise.ai.service.agent.AgentConfig;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -66,8 +65,8 @@ public class AgentChatRequest {
     private Integer maxTokens = 2000;
 
     /**
-     * 记忆策略
+     * 记忆策略 (SHORT_TERM/LONG_TERM/HYBRID/NONE)
      */
-    @Schema(description = "记忆策略: SHORT_TERM(短期记忆), LONG_TERM(长期记忆), HYBRID(混合记忆), NONE(无记忆)", example = "SHORT_TERM")
-    private AgentConfig.MemoryStrategy memoryStrategy = AgentConfig.MemoryStrategy.SHORT_TERM;
+    @Schema(description = "记忆策略: SHORT_TERM, LONG_TERM, HYBRID, NONE", example = "SHORT_TERM")
+    private String memoryStrategy = "SHORT_TERM";
 }

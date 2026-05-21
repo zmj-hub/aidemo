@@ -1,292 +1,111 @@
 package com.enterprise.ai.service.model;
 
-import cn.dev33.satoken.stp.StpUtil;
 import com.enterprise.ai.common.exception.BusinessException;
-import com.enterprise.ai.domain.dto.ChatRequest;
-import com.enterprise.ai.domain.dto.ChatResponse;
-import com.enterprise.ai.domain.dto.ModelInfo;
-import com.enterprise.ai.domain.enums.ModelProvider;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.openai.OpenAiTokenCountEstimator;
-
+import com.enterprise.ai.config.PlatformProperties;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import io.agentscope.core.model.Model;
+import io.agentscope.core.model.ModelRegistry;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 统一模型调用服务
- * 提供同步/流式调用接口，统一异常处理、Token统计
- */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ChatModelService {
 
-    @Autowired
-    private ModelFactory modelFactory;
+    private final PlatformProperties platformProperties;
+    private final Map<String, Boolean> modelHealthCache = new LinkedHashMap<>();
 
-    @Autowired
-    @Qualifier("modelScopeTokenizer")
-    private OpenAiTokenCountEstimator tokenizer;
-
-    /**
-     * 获取当前用户角色列表，如果未登录则返回guest角色
-     */
-    private List<String> getCurrentUserRoles() {
-        try {
-            List<String> roles = StpUtil.getRoleList();
-            if (roles.isEmpty()) {
-                roles = List.of("guest");
-            }
-            return roles;
-        } catch (Exception e) {
-            // 未登录时返回guest角色
-            return List.of("guest");
+    @PostConstruct
+    public void init() {
+        var modelscope = platformProperties.getModel().getModelscope();
+        for (String modelName : modelscope.getModels()) {
+            String modelId = "modelscope:" + modelName;
+            modelHealthCache.put(modelId, true);
         }
+        log.info("Initialized {} models in health cache", modelHealthCache.size());
     }
 
-    /**
-     * 角色与可用模型的映射关系
-     */
-    private static final Map<String, Set<String>> ROLE_MODEL_MAP = new ConcurrentHashMap<>();
-
-    static {
-        ROLE_MODEL_MAP.put("admin", Set.of(
-            "Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.5-122B-A10B",
-                "qwen-turbo", "qwen-max", "qwen-plus",
-                "qwen2-7b-instruct"
-        ));
-        ROLE_MODEL_MAP.put("user", Set.of(
-               "Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.5-122B-A10B",   "qwen-turbo", "qwen2-7b-instruct", "ollama-llama2"
-        ));
-        ROLE_MODEL_MAP.put("guest", Set.of(
-                "Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.5-122B-A10B",  "ollama-llama2"
-        ));
+    public List<Map<String, Object>> getAvailableModels() {
+        List<Map<String, Object>> models = new ArrayList<>();
+        for (String modelName : platformProperties.getModel().getModelscope().getModels()) {
+            String modelId = "modelscope:" + modelName;
+            Map<String, Object> info = new LinkedHashMap<>();
+            info.put("code", modelId);
+            info.put("name", modelName);
+            info.put("provider", "ModelScope");
+            info.put("enabled", platformProperties.getModel().getModelscope().isEnabled());
+            info.put("healthy", modelHealthCache.getOrDefault(modelId, true));
+            info.put("lastCheckTime", null);
+            models.add(info);
+        }
+        return models;
     }
 
-    /**
-     * 同步聊天调用
-     * 
-     * @param request 聊天请求
-     * @return 聊天响应
-     */
-    public ChatResponse chat(ChatRequest request) {
-        long startTime = System.currentTimeMillis();
-        String modelCode = request.getModelCode();
-        
+    public boolean isModelAvailable(String modelId) {
+        return ModelRegistry.canResolve(modelId);
+    }
+
+    public Model resolveModel(String modelId) {
+        if (!ModelRegistry.canResolve(modelId)) {
+            throw new BusinessException("模型不可用: " + modelId);
+        }
+        return ModelRegistry.resolve(modelId);
+    }
+
+    public Map<String, Object> healthCheck(String modelId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("modelCode", modelId);
         try {
-            checkModelPermission(modelCode);
-            
-            if (!modelFactory.isModelAvailable(modelCode)) {
-                throw new BusinessException("模型不可用: " + modelCode);
+            if (!ModelRegistry.canResolve(modelId)) {
+                result.put("healthy", false);
+                result.put("error", "模型未注册");
+                return result;
             }
-            
-            ChatModel model = modelFactory.getChatModel(modelCode);
-            if (model == null) {
-                throw new BusinessException("模型未找到: " + modelCode);
-            }
-            
-            List<ChatMessage> messages = buildChatMessages(request);
-            int promptTokens = estimateTokenCount(messages);
-            
-            dev.langchain4j.model.chat.response.ChatResponse response = model.chat(messages);
-            String content = response.aiMessage().text();
-            
-            int completionTokens = estimateTokenCount(content);
-            int totalTokens = promptTokens + completionTokens;
-            long duration = System.currentTimeMillis() - startTime;
-            
-            log.info("模型调用成功, 模型: {}, 耗时: {}ms, Token数: {}/{}", 
-                    modelCode, duration, promptTokens, completionTokens);
-            
-            return ChatResponse.builder()
-                    .modelCode(modelCode)
-                    .content(content)
-                    .promptTokens(promptTokens)
-                    .completionTokens(completionTokens)
-                    .totalTokens(totalTokens)
-                    .duration(duration)
-                    .success(true)
+            Model model = ModelRegistry.resolve(modelId);
+            Msg testMsg = Msg.builder()
+                    .role(MsgRole.USER)
+                    .textContent("Hello")
                     .build();
-        } catch (BusinessException e) {
-            throw e;
+            String responseText = model.stream(List.of(testMsg), List.of(), null)
+                    .collectList()
+                    .block()
+                    .stream()
+                    .map(r -> {
+                        if (!r.getContent().isEmpty() && r.getContent().get(0) instanceof io.agentscope.core.message.TextBlock tb) {
+                            return tb.getText();
+                        }
+                        return "";
+                    })
+                    .reduce("", (a, b) -> a + b);
+            boolean healthy = responseText != null && !responseText.isEmpty();
+            result.put("healthy", healthy);
+            modelHealthCache.put(modelId, healthy);
         } catch (Exception e) {
-            log.error("模型调用失败, 模型: {}", modelCode, e);
-            long duration = System.currentTimeMillis() - startTime;
-            return ChatResponse.builder()
-                    .modelCode(modelCode)
-                    .duration(duration)
-                    .success(false)
-                    .errorMessage(e.getMessage())
-                    .build();
+            result.put("healthy", false);
+            result.put("error", e.getMessage());
+            modelHealthCache.put(modelId, false);
         }
-    }
-
-    /**
-     * 检查模型权限
-     * 
-     * @param modelCode 模型编码
-     */
-    private void checkModelPermission(String modelCode) {
-        List<String> roles = getCurrentUserRoles();
-        
-        boolean hasPermission = false;
-        for (String role : roles) {
-            Set<String> allowedModels = ROLE_MODEL_MAP.get(role);
-            if (allowedModels != null && allowedModels.contains(modelCode)) {
-                hasPermission = true;
-                break;
-            }
-        }
-        
-        if (!hasPermission) {
-            throw new BusinessException("没有权限使用该模型: " + modelCode);
-        }
-    }
-
-    /**
-     * 构建聊天消息列表
-     * 
-     * @param request 聊天请求
-     * @return 聊天消息列表
-     */
-    private List<ChatMessage> buildChatMessages(ChatRequest request) {
-        List<ChatMessage> messages = new ArrayList<>();
-        
-        if (request.getMessages() != null && !request.getMessages().isEmpty()) {
-            for (ChatRequest.ChatMessage msg : request.getMessages()) {
-                if ("user".equals(msg.getRole())) {
-                    messages.add(UserMessage.from(msg.getContent()));
-                } else if ("assistant".equals(msg.getRole())) {
-                    messages.add(AiMessage.from(msg.getContent()));
-                }
-            }
-        }
-        
-        messages.add(UserMessage.from(request.getMessage()));
-        return messages;
-    }
-
-    /**
-     * 估算Token数量
-     * 
-     * @param messages 消息列表
-     * @return Token数量
-     */
-    private int estimateTokenCount(List<ChatMessage> messages) {
-        try {
-            return tokenizer.estimateTokenCountInMessages(messages);
-        } catch (Exception e) {
-            StringBuilder text = new StringBuilder();
-            for (ChatMessage msg : messages) {
-                text.append(msg.toString()).append(" ");
-            }
-            return estimateTokenCount(text.toString());
-        }
-    }
-
-    /**
-     * 估算Token数量
-     * 
-     * @param text 文本
-     * @return Token数量
-     */
-    private int estimateTokenCount(String text) {
-        try {
-            return tokenizer.estimateTokenCountInText(text);
-        } catch (Exception e) {
-            return text.length() / 4;
-        }
-    }
-
-    /**
-     * 获取当前用户可用的模型列表
-     * 
-     * @return 模型信息列表
-     */
-    public List<ModelInfo> getAvailableModels() {
-        List<String> roles = getCurrentUserRoles();
-        
-        Set<String> availableModels = modelFactory.getAvailableModels();
-        List<ModelInfo> result = new ArrayList<>();
-        
-        Set<String> allowedModels = new java.util.HashSet<>();
-        for (String role : roles) {
-            Set<String> roleModels = ROLE_MODEL_MAP.get(role);
-            if (roleModels != null) {
-                allowedModels.addAll(roleModels);
-            }
-        }
-        
-        for (String modelCode : allowedModels) {
-            if (availableModels.contains(modelCode)) {
-                ModelProvider provider = ModelProvider.fromCode(modelCode);
-                if (provider != null) {
-                    result.add(ModelInfo.builder()
-                            .code(provider.getCode())
-                            .name(provider.getName())
-                            .provider(provider.getProvider())
-                            .enabled(true)
-                            .healthy(true)
-                            .lastCheckTime(System.currentTimeMillis())
-                            .build());
-                }
-            }
-        }
-        
         return result;
     }
 
-    /**
-     * 健康检查单个模型
-     * 
-     * @param modelCode 模型编码
-     * @return 是否健康
-     */
-    public boolean healthCheck(String modelCode) {
-        try {
-            ChatModel model = modelFactory.getChatModel(modelCode);
-            if (model == null) {
-                modelFactory.updateModelHealth(modelCode, false);
-                return false;
-            }
-            
-            String response = model.chat("你好");
-            boolean healthy = response != null && !response.isEmpty();
-            modelFactory.updateModelHealth(modelCode, healthy);
-            return healthy;
-        } catch (Exception e) {
-            log.warn("模型健康检查失败: {}", modelCode, e);
-            modelFactory.updateModelHealth(modelCode, false);
-            return false;
+    public List<Map<String, Object>> batchHealthCheck(List<String> modelIds) {
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (String modelId : modelIds) {
+            results.add(healthCheck(modelId));
         }
+        return results;
     }
 
-    /**
-     * 批量健康检查
-     * 
-     * @param modelCodes 模型编码列表，为空则检查所有可用模型
-     * @return 模型健康状态Map
-     */
-    public Map<String, Boolean> batchHealthCheck(List<String> modelCodes) {
-        if (modelCodes == null || modelCodes.isEmpty()) {
-            modelCodes = new ArrayList<>(modelFactory.getAvailableModels());
-        }
-        
-        Map<String, Boolean> result = new HashMap<>();
-        for (String modelCode : modelCodes) {
-            result.put(modelCode, healthCheck(modelCode));
-        }
-        return result;
+    public void updateModelHealth(String modelId, boolean healthy) {
+        modelHealthCache.put(modelId, healthy);
     }
 }
