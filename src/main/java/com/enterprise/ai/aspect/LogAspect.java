@@ -19,7 +19,11 @@ import java.util.Arrays;
 @Component
 public class LogAspect {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public LogAspect(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Pointcut("execution(* com.enterprise.ai.controller..*.*(..))")
     public void logPointcut() {

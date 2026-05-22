@@ -1,5 +1,6 @@
 package com.enterprise.ai.config;
 
+import io.agentscope.core.model.ExecutionConfig;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.model.ModelRegistry;
 import io.agentscope.core.model.OpenAIChatModel;
@@ -41,6 +42,7 @@ public class ModelRegistryConfig {
                     .generateOptions(GenerateOptions.builder()
                             .maxTokens(4096)
                             .temperature(0.7)
+                            .executionConfig(executionConfig())
                             .build())
                     .build();
         });
@@ -56,6 +58,7 @@ public class ModelRegistryConfig {
                         .generateOptions(GenerateOptions.builder()
                                 .maxTokens(4096)
                                 .temperature(0.7)
+                                .executionConfig(executionConfig())
                                 .build())
                         .build();
                 ModelRegistry.register(modelId, model);
@@ -63,5 +66,14 @@ public class ModelRegistryConfig {
         }
 
         log.info("Registered {} ModelScope models via {}", modelscope.getModels().size(), baseUrl);
+    }
+
+    private ExecutionConfig executionConfig() {
+        return ExecutionConfig.builder()
+                .maxAttempts(3)
+                .initialBackoff(Duration.ofSeconds(2))
+                .maxBackoff(Duration.ofSeconds(30))
+                .backoffMultiplier(2.0)
+                .build();
     }
 }
